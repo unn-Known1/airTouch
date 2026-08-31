@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AirMouse - Remote</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#08080c;color:#e8e8ef;min-height:100vh;display:flex;flex-direction:column;touch-action:manipulation}
+  .top{position:sticky;top:0;background:#111118;border-bottom:1px solid #222;z-index:10}
+  .bar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+  .bar h1{font-size:16px;letter-spacing:0.06em}
+  .bar h1 span{color:#60a5fa}
+  .badge{font-size:11px;padding:5px 8px;border-radius:999px;border:1px solid #2a2a3a;background:#1a1a24}
+  .badge.ok{background:#0f2a1a;border-color:#1a4a2a;color:#4ade80}
+  .badge.err{background:#2a0f14;border-color:#4a1a22;color:#ff6b7a}
+  .pair{padding:10px 14px;display:grid;gap:8px}
+  .row{display:flex;gap:8px}
+  .input{flex:1;background:#0f0f14;border:1px solid #2a2a3a;border-radius:10px;color:#fff;padding:12px;font-size:15px;text-align:center;letter-spacing:0.12em;font-weight:700}
+  .input.relay{letter-spacing:0;font-weight:400;font-size:12px;text-align:left}
+  .btn{background:#007AFF;color:#fff;border:none;border-radius:10px;padding:12px 14px;font-weight:700;cursor:pointer}
+  .btn:active{opacity:.8;transform:scale(.98)}
+  .btn.secondary{background:#2a2a3a}
+  .btn.giant{width:100%;padding:16px;font-size:17px}
+  .btn:disabled{background:#1a1a24;color:#555}
+  .tabs{display:flex;gap:8px;padding:0 14px 10px}
+  .tab{flex:1;padding:10px;border-radius:10px;border:1px solid #2a2a3a;background:#1a1a24;color:#8b8ba3;font-weight:700;font-size:13px}
+  .tab.active{background:#fff;color:#000;border-color:#fff}
+  /* stage */
+  .stage{flex:1;display:flex;flex-direction:column;padding:14px;gap:12px;max-width:520px;width:100%;margin:0 auto}
+  .card{background:#15151e;border:1px solid #2a2a3a;border-radius:16px;padding:12px}
+  .touchpad{height:280px;background:radial-gradient(400px 200px at 50% 0%, #1e2a4a 0%, transparent 60%), #0f0f14;border:1px solid #2a2a3a;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:none;user-select:none}
+  .touchpad span{color:#8b8ba3;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;text-align:center;line-height:1.4}
+  .touchpad .dot{position:absolute;width:14px;height:14px;background:#60a5fa;border-radius:50%;pointer-events:none;opacity:.0;transform:translate(-50%,-50%)}
+  .touchpad.active .dot{opacity:1}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .kbtn{background:#1e1e2e;border:1px solid #2a2a3a;border-radius:14px;padding:16px 8px;color:#fff;font-weight:800;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .kbtn:active{background:#2a2a3a;transform:scale(.97)}
+  .kbtn.small{padding:10px 6px;font-size:12px}
+  .kbtn .ico{font-size:18px}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dpad{position:relative;height:160px;background:#0f0f14;border:1px solid #2a2a3a;border-radius:16px;display:grid;place-items:center}
+  .dpad .c{width:52px;height:52px;background:#fff;color:#000;border-radius:50%;display:grid;place-items:center;font-weight:900;border:none}
+  .dpad button{position:absolute;width:52px;height:52px;background:#1e1e2e;border:1px solid #2a2a3a;border-radius:12px;color:#fff;font-size:18px}
+  .dpad .up{top:10px;left:50%;transform:translateX(-50%)}
+  .dpad .down{bottom:10px;left:50%;transform:translateX(-50%)}
+  .dpad .left{left:12px;top:50%;transform:translateY(-50%)}
+  .dpad .right{right:12px;top:50%;transform:translateY(-50%)}
+  .slider{width:100%}
+  .hint{font-size:11px;color:#8b8ba3;text-align:center;line-height:1.4}
+  .mono{font-family:ui-monospace,monospace;font-size:10px;background:#0f0f14;border:1px solid #26263a;border-radius:8px;padding:8px;overflow:auto;max-height:90px;white-space:pre-wrap;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="bar">
+    <h1>AirMouse <span>Remote</span></h1>
+    <span id="conn" class="badge">○ Offline</span>
+  </div>
+  <div class="pair">
+    <div class="row">
+      <input id="room" class="input" inputmode="numeric" maxlength="4" placeholder="CODE">
+      <button id="connectBtn" class="btn">Connect</button>
+    </div>
+    <input id="relay" class="input relay" placeholder="ws://server-ip:7889">
+    <div class="row">
+      <button id="gyroBtn" class="btn giant" style="flex:1">Tap to Enable Gyro</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="gyro">Gyro Air</button>
+    <button class="tab" data-tab="touch">Touchpad</button>
+    <button class="tab" data-tab="dpad">D-Pad</button>
+  </div>
+</div>
+
+<div class="stage">
+  <!-- Gyro mode -->
+  <div id="tab-gyro" class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;letter-spacing:0.08em;color:#8b8ba3;font-weight:700">GYRO AIR MOUSE</span>
+      <span id="gyroStatus" style="font-size:11px;color:#8b8ba3">Idle</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <button id="calib" class="btn secondary" style="flex:1;padding:10px">Calibrate</button>
+      <button id="clickBtn" class="btn" style="flex:1;padding:10px">CLICK (Tap)</button>
+    </div>
+    <div class="touchpad" id="gyroPad" style="height:200px">
+      <span id="gyroHint">Enable gyro, then tilt / rotate phone<br>to move cursor on TV<br><br>Tap / Click to select</span>
+      <div class="dot" id="gyroDot"></div>
+    </div>
+    <div style="margin-top:10px">
+      <label style="font-size:11px;color:#8b8ba3">Sensitivity <span id="sensVal">1.8</span></label>
+      <input id="sens" class="slider" type="range" min="0.5" max="4" step="0.1" value="1.8">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">
+      <div style="text-align:center"><div style="font-size:11px;color:#8b8ba3">BETA</div><div id="beta" style="font-weight:700">—</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:#8b8ba3">GAMMA</div><div id="gamma" style="font-weight:700">—</div></div>
+      <div style="text-align:center"><div style="font-size:11px;color:#8b8ba3">RATE</div><div id="rate" style="font-weight:700">—</div></div>
+    </div>
+  </div>
+
+  <div id="tab-touch" class="card" style="display:none">
+    <div style="font-size:12px;letter-spacing:0.08em;color:#8b8ba3;font-weight:700;margin-bottom:8px">TOUCHPAD</div>
+    <div class="touchpad" id="pad">
+      <span>Swipe to move • Tap to click<br>Two-finger swipe to scroll</span>
+      <div class="dot" id="padDot"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">Touchpad sends delta movement — works without gyro, great for couch mode.</p>
+  </div>
+
+  <div id="tab-dpad" class="card" style="display:none">
+    <div class="dpad">
+      <button class="up" data-dir="up">▲</button>
+      <button class="left" data-dir="left">◀</button>
+      <button class="c" id="okBtn">OK</button>
+      <button class="right" data-dir="right">▶</button>
+      <button class="down" data-dir="down">▼</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <button class="kbtn small" data-key="back"><span class="ico">↩</span>Back</button>
+    <button class="kbtn small" data-key="home"><span class="ico">⌂</span>Home</button>
+    <button class="kbtn small" id="centerCur"><span class="ico">◎</span>Center</button>
+  </div>
+  <div class="controls">
+    <button class="kbtn small" data-key="vol_down">Vol −</button>
+    <button class="kbtn small" data-key="vol_up">Vol +</button>
+  </div>
+  <div class="grid">
+    <button class="kbtn small" data-key="mute">Mute</button>
+    <button class="kbtn small" data-key="menu">Menu</button>
+    <button class="kbtn small" data-key="power">Power</button>
+  </div>
+
+  <div class="card">
+    <div style="font-size:11px;color:#8b8ba3;margin-bottom:6px">Event log</div>
+    <div id="log" class="mono">ready</div>
+  </div>
+  <p class="hint">Keep this page awake. On iPhone enable Motion access in Settings → Safari if blocked. Both devices use same 4-digit code.</p>
+</div>
+
+<script>
+let room = new URLSearchParams(location.search).get('room') || localStorage.getItem('airmouse_room') || '';
+let relay = new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || ('ws://'+location.hostname+':7889');
+document.getElementById('room').value = room;
+document.getElementById('relay').value = relay;
+
+const connBadge=document.getElementById('conn');
+let ws=null;
+
+function log(m){
+  const el=document.getElementById('log');
+  el.textContent = new Date().toLocaleTimeString()+' '+m+'\n'+el.textContent;
+}
+function setConn(t, ok){
+  connBadge.textContent=t;
+  connBadge.className='badge '+(ok?'ok':'err');
+  if(!ok && t.includes('○')) connBadge.className='badge';
+}
+function connect(){
+  room=document.getElementById('room').value.trim();
+  relay=document.getElementById('relay').value.trim();
+  if(!room || room.length<3) return alert('Enter 4-digit code from TV');
+  localStorage.setItem('airmouse_room', room);
+  localStorage.setItem('airmouse_relay', relay);
+  if(ws) try{ws.close()}catch(e){}
+  const url = relay + (relay.includes('?')?'&':'?') + 'room='+encodeURIComponent(room)+'&role=remote';
+  setConn('○ Connecting…', false);
+  log('connect '+url);
+  try{ ws=new WebSocket(url);}catch(e){ setConn('✗ Bad URL', false); log('bad url'); return;}
+  ws.onopen=()=>{ setConn('● Connected to '+room, true); log('connected'); ws.send(JSON.stringify({type:'hello', role:'remote', room})); };
+  ws.onclose=()=>{ setConn('○ Disconnected', false); log('disconnected'); };
+  ws.onerror=()=>{ setConn('✗ Error', false); log('ws error'); };
+}
+document.getElementById('connectBtn').onclick=connect;
+if(room) connect();
+
+function send(obj){
+  if(!ws || ws.readyState!==1){ log('not connected'); return; }
+  obj.room=room; obj.role='remote';
+  ws.send(JSON.stringify(obj));
+  // feedback
+  // log(JSON.stringify(obj));
+}
+
+// tabs
+document.querySelectorAll('.tab').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('tab-gyro').style.display = b.dataset.tab==='gyro'?'':'none';
+    document.getElementById('tab-touch').style.display = b.dataset.tab==='touch'?'':'none';
+    document.getElementById('tab-dpad').style.display = b.dataset.tab==='dpad'?'':'none';
+  });
+});
+
+// --- gyro ---
+let gyroEnabled=false, calibBeta=0, calibGamma=0, lastBeta=null, lastGamma=null;
+let sens=1.8;
+document.getElementById('sens').addEventListener('input', e=>{ sens=parseFloat(e.target.value); document.getElementById('sensVal').textContent=sens.toFixed(1); });
+
+document.getElementById('calib').onclick=()=>{
+  if(lastBeta!=null){ calibBeta=lastBeta; calibGamma=lastGamma; log('calibrated '+calibBeta.toFixed(1)+','+calibGamma.toFixed(1)); document.getElementById('gyroStatus').textContent='Calibrated'; }
+};
+
+function enableGyro(){
+  const needPerm = typeof DeviceOrientationEvent.requestPermission==='function' || typeof DeviceMotionEvent.requestPermission==='function';
+  (async()=>{
+    try{
+      if(typeof DeviceOrientationEvent.requestPermission==='function'){
+        const r=await DeviceOrientationEvent.requestPermission();
+        if(r!=='granted') throw new Error('Orientation denied');
+      }
+      if(typeof DeviceMotionEvent.requestPermission==='function'){
+        const r=await DeviceMotionEvent.requestPermission();
+        if(r!=='granted') throw new Error('Motion denied');
+      }
+      attachGyro();
+      gyroEnabled=true;
+      document.getElementById('gyroBtn').textContent='✓ Gyro Enabled';
+      document.getElementById('gyroBtn').disabled=true;
+      document.getElementById('gyroHint').innerHTML='Gyro active<br>tilt phone to move cursor';
+      document.getElementById('gyroStatus').textContent='Listening';
+      log('gyro enabled');
+    }catch(e){ log('gyro perm fail '+e.message); alert(e.message+' — Settings → Safari → Motion & Orientation Access → ON'); }
+  })();
+}
+document.getElementById('gyroBtn').onclick=enableGyro;
+document.getElementById('gyroPad').addEventListener('click', ()=>{ if(!gyroEnabled) enableGyro(); });
+
+// use rotationRate for velocity if available, else orientation delta
+let lastT=0;
+function attachGyro(){
+  window.addEventListener('deviceorientation', e=>{
+    lastBeta=e.beta; lastGamma=e.gamma;
+    document.getElementById('beta').textContent = e.beta?.toFixed(1) ?? '—';
+    document.getElementById('gamma').textContent = e.gamma?.toFixed(1) ?? '—';
+    // fallback delta mode: compute diff from calibrated center
+    if(!gyroEnabled) return;
+    // If rotationRate not available, use orientation diff with smoothing
+    // We will handle movement in devicemotion; if devicemotion missing, use this delta throttled
+    const now=performance.now();
+    if(now-lastT < 32) return; // ~30Hz
+    lastT=now;
+    // Only use orientation delta if no rotationRate recently
+    if(Date.now() - lastMotionT > 300){
+      const b=(e.beta||0)-calibBeta;
+      const g=(e.gamma||0)-calibGamma;
+      // deadzone 2 deg
+      if(Math.abs(b)<2 && Math.abs(g)<2) return;
+      // map gamma -> dx, beta -> dy (invert dy)
+      const dx = g * 0.6 * sens;
+      const dy = b * 0.6 * sens;
+      send({type:'move', dx, dy});
+    }
+  }, true);
+
+  window.addEventListener('devicemotion', e=>{
+    lastMotionT=Date.now();
+    const r=e.rotationRate;
+    document.getElementById('rate').textContent = r ? (r.beta?.toFixed(1)??'—')+','+(r.gamma?.toFixed(1)??'—') : '—';
+    if(!gyroEnabled || !r) return;
+    const now=performance.now();
+    if(now-lastT < 16) return; // ~60Hz
+    lastT=now;
+    let dx=0, dy=0;
+    // rotationRate gamma = left/right tilt velocity, beta = front/back
+    if(r.gamma!=null) dx = r.gamma * 0.12 * sens; // scale to pixels
+    if(r.beta!=null) dy = r.beta * 0.12 * sens;
+    // deadzone
+    if(Math.abs(dx)<0.4 && Math.abs(dy)<0.4) return;
+    // clamp
+    dx=Math.max(-40, Math.min(40, dx));
+    dy=Math.max(-40, Math.min(40, dy));
+    send({type:'move', dx, dy});
+  }, true);
+}
+let lastMotionT=0;
+// auto-attach on desktop without permission
+if(typeof DeviceOrientationEvent.requestPermission!=='function' && typeof DeviceMotionEvent.requestPermission!=='function'){
+  // still require tap to start due to browser throttling, but allow auto
+  // attachGyro(); // wait for user tap
+}
+
+// touchpad
+const pad=document.getElementById('pad');
+const padDot=document.getElementById('padDot');
+let padActive=false, lastX=0, lastY=0;
+function pos(e){ const t=e.touches?e.touches[0]:e; const r=pad.getBoundingClientRect(); return {x:t.clientX-r.left, y:t.clientY-r.top}; }
+pad.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  padActive=true; pad.classList.add('active');
+  const p=pos(e); lastX=p.x; lastY=p.y; padDot.style.left=p.x+'px'; padDot.style.top=p.y+'px';
+},{passive:false});
+pad.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(!padActive) return;
+  const p=pos(e);
+  const dx=p.x-lastX, dy=p.y-lastY;
+  lastX=p.x; lastY=p.y;
+  padDot.style.left=p.x+'px'; padDot.style.top=p.y+'px';
+  // single finger = move, two fingers = scroll
+  if(e.touches.length===2){
+    send({type:'scroll', dy:dy*0.5});
+  } else {
+    send({type:'move', dx:dx*1.2, dy:dy*1.2});
+  }
+},{passive:false});
+pad.addEventListener('touchend', e=>{
+  e.preventDefault();
+  if(e.touches.length===0){
+    padActive=false; pad.classList.remove('active');
+    // tap without move = click (if very short)
+  } else {
+    const p=pos(e); lastX=p.x; lastY=p.y;
+  }
+},{passive:false});
+pad.addEventListener('click', ()=>{ send({type:'click'}); });
+
+// gyro pad click
+document.getElementById('clickBtn').onclick=()=>send({type:'click'});
+document.getElementById('gyroPad').addEventListener('click', ()=>send({type:'click'}));
+
+// dpad
+document.querySelectorAll('[data-dir]').forEach(b=> b.addEventListener('click', ()=> send({type:b.dataset.dir})));
+document.getElementById('okBtn').onclick=()=>send({type:'click'});
+document.getElementById('centerCur').onclick=()=>send({type:'center'});
+document.querySelectorAll('[data-key]').forEach(b=> b.addEventListener('click', ()=> send({type:'key', key:b.dataset.key})));
+
+// keep screen awake
+let wakeLock=null;
+async function keepAwake(){
+  try{ if('wakeLock' in navigator){ wakeLock=await navigator.wakeLock.request('screen'); } }catch(e){}
+}
+document.addEventListener('visibilitychange', keepAwake);
+keepAwake();
+</script>
+</body>
+</html>

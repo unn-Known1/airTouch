@@ -1,0 +1,14 @@
+{
+  "name": "airtouch",
+  "version": "1.0.0",
+  "description": "iPhone gyro + Android TV AirMouse",
+  "type": "module",
+  "scripts": {
+    "relay": "node relay.js",
+    "serve": "python3 -m http.server 7888 --directory .",
+    "start": "node relay.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
