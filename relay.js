@@ -81,12 +81,18 @@ wss.on('connection', (ws, req)=>{
     }
   }
 
+  ws.msgCount=0;
   ws.on('message', (data)=>{
-    // broadcast to all peers in same room except sender
     let msg;
     try{ msg = JSON.parse(data.toString()); }catch{ msg = {raw: data.toString()}; }
-    // attach room/role if missing
     msg.room = room;
+    // debug log first few moves per connection
+    if(msg.type==='move' && ws.msgCount<5){
+      console.log(`move room ${room} ${role} dx=${msg.dx} dy=${msg.dy} -> ${set.size-1} peers`);
+      ws.msgCount++;
+    } else if(msg.type && msg.type!=='move' && ws.msgCount<5){
+      console.log(`${msg.type} room ${room} ${role}`);
+    }
     const out = JSON.stringify(msg);
     for(const peer of set){
       if(peer !== ws && peer.readyState===1){
