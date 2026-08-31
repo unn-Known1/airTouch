@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AirTouch — Gyro Air Mouse for TV</title>
 <meta name="description" content="Turn your phone into an air mouse for Android TV & laptop. Gyro + touchpad + global cursor. No install — just open on any device.">
 <script src="https://unpkg.com/peerjs@1.5.3/dist/peerjs.min.js"></script>
@@ -10,8 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --color-primary:#6366F1; --color-on-primary:#fff; --color-secondary:#818CF8; --color-on-secondary:#0F172A;
-    --color-accent:#059669; --color-on-accent:#fff; --color-bg:#F5F3FF; --color-fg:#312E81;
+    --color-primary:#4F46E5; --color-on-primary:#fff; --color-secondary:#818CF8; --color-on-secondary:#0F172A;
+    --color-accent:#047857; --color-on-accent:#fff; --color-bg:#F5F3FF; --color-background:#F5F3FF; --color-fg:#312E81; --color-foreground:#312E81;
     --color-card:#FFFFFF; --color-card-fg:#312E81; --color-muted:#EBEFF9; --color-muted-fg:#475569;
     --color-border:#E0E7FF; --color-ring:#6366F1;
     --space-xs:4px; --space-sm:8px; --space-md:16px; --space-lg:24px; --space-xl:32px; --space-2xl:48px;
@@ -20,11 +20,15 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{font-family:'Work Sans',system-ui,sans-serif;background:var(--color-bg);color:var(--color-fg);min-height:100vh;-webkit-font-smoothing:antialiased}
-  h1,h2,h3{font-family:'Outfit',sans-serif;letter-spacing:-0.02em}
-  button, a, [role="button"]{cursor:pointer}
+  body{font-family:'Work Sans';line-height:1.5,system-ui,sans-serif;background:var(--color-bg);color:var(--color-fg);min-height:100vh;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Outfit',sans-serif;letter-spacing:-0.02em;line-height:1.2;text-wrap:balance}
+  .btn,.tab,.kbtn,.app,[role="button"],a,button{cursor:pointer}
   :focus-visible{outline:2px solid var(--color-ring);outline-offset:2px}
-  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} html{scroll-behavior:auto!important} }
+  @media (prefers-color-scheme: dark){
+    :root{ --color-bg:#0F0F1A; --color-fg:#E0E7FF; --color-card:#1A1A2E; --color-card-fg:#E0E7FF; --color-muted:#1E1E32; --color-muted-fg:#94A3B8; --color-border:#2A2A4A }
+    .header{ background:rgba(15,15,26,.85) }
+  }
   /* header */
   .header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--color-border)}
   .header-inner{max-width:1024px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -57,7 +61,7 @@
   /* tabs */
   .tabs{display:flex;gap:8px;padding:4px;background:var(--color-muted);border-radius:12px;overflow-x:auto;scrollbar-width:none}
   .tabs::-webkit-scrollbar{display:none}
-  .tab{flex:1;min-width:110px;padding:10px 12px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--color-muted-fg);font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:all 200ms ease}
+  .tab{flex:1;min-width:110px;padding:12px 12px;min-height:44px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--color-muted-fg);font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:all 200ms ease}
   .tab.active{background:var(--color-card);color:var(--color-fg);border-color:var(--color-border);box-shadow:var(--shadow-sm)}
   .tab svg{width:16px;height:16px;flex-shrink:0}
   /* cards */
@@ -81,9 +85,9 @@
   .dpad .up{top:10px;left:50%;transform:translateX(-50%)} .dpad .down{bottom:10px;left:50%;transform:translateX(-50%)} .dpad .left{left:10px;top:50%;transform:translateY(-50%)} .dpad .right{right:10px;top:50%;transform:translateY(-50%)} .dpad .c{width:56px;height:56px;background:var(--color-primary);color:var(--color-on-primary);border-radius:50%;border:none;position:static;transform:none;box-shadow:var(--shadow-md)}
   /* TV */
   .stage{position:relative;background:linear-gradient(180deg,#fff 0%, #EEF2FF 100%);border:1px solid var(--color-border);border-radius:12px;overflow:hidden;height:340px;box-shadow:var(--shadow-sm)}
-  .cursor{position:absolute;width:28px;height:28px;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:10;filter:drop-shadow(0 2px 8px rgba(49,46,129,.2))}
-  .cursor .dot{width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;left:7px;top:7px;border:2px solid var(--color-primary)}
-  .cursor .ring{position:absolute;inset:0;border:2px solid var(--color-primary);border-radius:50%;opacity:.7;animation:pulse 1.2s infinite}
+  .air-cursor{position:absolute;width:28px;height:28px;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:10;filter:drop-shadow(0 2px 8px rgba(49,46,129,.2))}
+  .air-cursor .dot{width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;left:7px;top:7px;border:2px solid var(--color-primary)}
+  .air-cursor .ring{position:absolute;inset:0;border:2px solid var(--color-primary);border-radius:50%;opacity:.7;animation:pulse 1.2s infinite}
   @keyframes pulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.6);opacity:0}}
   .launcher{padding:14px;display:grid;gap:10px}
   .apps{display:flex;gap:10px;flex-wrap:wrap}
@@ -103,9 +107,12 @@
   .face.front{background:rgba(99,102,241,.88);color:#fff;transform:rotateY(0) translateZ(50px)} .face.back{background:rgba(99,102,241,.5);color:#fff;transform:rotateY(180deg) translateZ(50px)} .face.right{background:rgba(5,150,105,.85);color:#fff;transform:rotateY(90deg) translateZ(50px)} .face.left{background:rgba(5,150,105,.5);color:#fff;transform:rotateY(-90deg) translateZ(50px)} .face.top{background:rgba(129,140,248,.85);color:#fff;transform:rotateX(90deg) translateZ(50px)} .face.bottom{background:rgba(129,140,248,.5);color:#fff;transform:rotateX(-90deg) translateZ(50px)}
   .hidden{display:none!important}
   @media(min-width:768px){ .shell{padding:20px} }
+  @media(min-width:1024px){ .shell{max-width:1024px} .grid3{grid-template-columns:repeat(3,1fr)} }
+  @media(min-width:1440px){ .shell{max-width:1100px} }
 </style>
 </head>
 <body>
+<a href="#main" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">Skip to content</a>
 <header class="header">
   <div class="header-inner">
     <div class="brand">
@@ -121,22 +128,44 @@
   <div style="max-width:1024px;margin:0 auto;padding:0 16px 12px">
     <div class="pair-card" style="padding:12px">
       <div class="pair-grid">
-        <div class="field"><label for="roomInput">Room code</label><input id="roomInput" class="input code" maxlength="4" inputmode="numeric" placeholder="----" aria-label="Room code"></div>
-        <div class="field"><label for="relayInput">Relay (auto wss on Pages)</label><input id="relayInput" class="input relay" placeholder="wss://..." aria-label="Relay URL"></div>
-        <div class="field" style="justify-content:end"><label style="opacity:0">.</label><button id="connectBtn" class="btn btn-primary" style="min-width:110px">Connect</button></div>
+        <div class="field"><label for="roomInput">Room code</label><input id="roomInput" class="input code" autocomplete="one-time-code" enterkeyhint="done" maxlength="4" inputmode="numeric" placeholder="----" aria-label="Room code"></div>
+        <div class="field"><label for="relayInput">Relay (auto wss on Pages)</label><input id="relayInput" class="input relay" autocomplete="off" spellcheck="false" placeholder="wss://..." aria-label="Relay URL"></div>
+        <div class="field" style="justify-content:end"><label style="opacity:0">.</label><button id="connectBtn" class="btn btn-primary" style="min-width:110px" aria-busy="false"><span id="connectLabel">Connect</span> <span id="connectSpinner" hidden aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg></span></button></div>
       </div>
     </div>
     <div class="tabs" role="tablist" aria-label="Modes">
-      <button class="tab active" data-tab="remote" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> Remote</button>
-      <button class="tab" data-tab="tv" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 2l-5 5-5-5"/></svg> TV</button>
-      <button class="tab" data-tab="sensors" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 3.5-3 6.5-7 10-4-3.5-7-6.5-7-10a7 7 0 0 1 7-7Z"/></svg> Sensors</button>
+      <button class="tab active" data-tab="remote" id="tab-btn-remote" aria-controls="tab-remote" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> Remote</button>
+      <button class="tab" data-tab="tv" id="tab-btn-tv" aria-controls="tab-tv" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 2l-5 5-5-5"/></svg> TV</button>
+      <button class="tab" data-tab="sensors" id="tab-btn-sensors" aria-controls="tab-sensors" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 3.5-3 6.5-7 10-4-3.5-7-6.5-7-10a7 7 0 0 1 7-7Z"/></svg> Sensors</button>
     </div>
   </div>
 </header>
 
-<main class="shell">
+
+<section style="max-width:1024px;margin:16px auto 0;padding:0 16px">
+  <div class="card" style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:center;background:linear-gradient(135deg,#fff 0%, #EEF2FF 100%)">
+    <div>
+      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--color-muted);border:1px solid var(--color-border);padding:6px 10px;border-radius:999px;font-size:11px;font-weight:600;color:var(--color-primary)">● Live • Peer P2P on GitHub Pages • WSS relay fallback</div>
+      <h2 style="font-size:26px;margin:10px 0 8px;line-height:1.1">Phone → TV in one tap</h2>
+      <p style="color:var(--color-muted-fg);font-size:13px;line-height:1.5">Turn any phone into a gyro air mouse. Open this page on TV (TV tab) and phone (Remote tab) with the same <b>CODE</b>. No install — just HTTPS.</p>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="document.getElementById('tab-btn-remote').click(); window.scrollTo({top:0,behavior:'smooth'})">Start as Remote</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('tab-btn-tv').click()">Start as TV</button>
+        <span style="font-size:11px;color:var(--color-muted-fg);align-self:center">Updated <time datetime="2026-08-31">just now</time> • Pause via Disconnect</span>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:14px;font-size:11px;color:var(--color-muted-fg)"><span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><path d="M5 13l4 4L19 7"/></svg> 44px touch • <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><path d="M5 13l4 4L19 7"/></svg> Keyboard • <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><path d="M5 13l4 4L19 7"/></svg> Reduced-motion</span><span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><path d="M5 13l4 4L19 7"/></svg> 4.5:1 contrast</span></div>
+    </div>
+    <div style="background:var(--color-card);border:1px solid var(--color-border);border-radius:12px;padding:12px;box-shadow:var(--shadow-sm)">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--color-muted-fg);text-transform:uppercase">How it works</div>
+      <ol style="margin:8px 0 0 18px;font-size:13px;line-height:1.6;color:var(--color-fg)"><li>TV opens TV tab → shows CODE + QR</li><li>Phone scans QR → Remote tab → Connect</li><li>Enable Gyro → tilt / swipe → TV cursor moves</li></ol>
+      <div style="margin-top:10px;display:flex;gap:8px"><span class="badge ok">No install</span><span class="badge">Works offline* via P2P</span></div>
+      <p style="font-size:10px;color:var(--color-muted-fg);margin-top:6px">*Static on GitHub Pages; P2P needs internet for signaling, then direct.</p>
+    </div>
+  </div>
+</section>
+<main id="main" class="shell">
   <!-- REMOTE -->
-  <section id="tab-remote" aria-labelledby="Remote">
+  <section id="tab-remote" role="tabpanel" aria-labelledby="tab-btn-remote" aria-labelledby="Remote">
     <div style="display:grid;gap:16px">
       <div class="card">
         <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg> Gyro Air Mouse <span id="gyroStatus" style="margin-left:auto;font-size:11px;color:var(--color-muted-fg);font-weight:600">Idle</span></div>
@@ -147,7 +176,7 @@
         </div>
         <div class="touchpad" id="gyroPad" style="margin-top:12px"><span id="gyroHint">Tap Enable, then tilt to move TV cursor</span><div class="dot" id="gyroDot"></div></div>
         <div style="display:grid;gap:8px;margin-top:12px">
-          <label style="font-size:11px;font-weight:600;color:var(--color-muted-fg);display:flex;align-items:center;gap:8px">Sensitivity <span id="sensVal">1.8</span> <input id="sens" type="range" min="0.5" max="4" step="0.1" value="1.8" style="flex:1;accent-color:var(--color-primary)"></label>
+          <label style="font-size:11px;font-weight:600;color:var(--color-muted-fg);display:flex;align-items:center;gap:8px">Sensitivity <span id="sensVal">1.8</span> <input id="sens" type="range" aria-label="Sensitivity" aria-valuemin="0.5" aria-valuemax="4" aria-valuenow="1.8" min="0.5" max="4" step="0.1" value="1.8" style="flex:1;accent-color:var(--color-primary)"></label>
           <div id="invertWrap" style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--color-muted-fg)"></div>
         </div>
         <div class="grid3" style="margin-top:10px">
@@ -178,7 +207,7 @@
   </section>
 
   <!-- TV -->
-  <section id="tab-tv" class="hidden">
+  <section id="tab-tv" role="tabpanel" aria-labelledby="tab-btn-tv" class="hidden">
     <div style="display:grid;gap:16px">
       <div class="card" style="text-align:center">
         <div class="section-title" style="justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 8h.01M8 12h8M8 16h8"/></svg> Pair phone</div>
@@ -188,20 +217,20 @@
         <div style="display:flex;gap:8px;margin-top:12px"><button id="centerTvBtn" class="btn btn-secondary" style="flex:1">Center</button><button id="fsBtn" class="btn btn-ghost" style="flex:1">Fullscreen</button></div>
       </div>
       <div class="stage" id="stage">
-        <div id="cursor" class="cursor"><div class="ring"></div><div class="dot"></div></div>
+        <div id="cursor" class="air-cursor"><div class="ring"></div><div class="dot"></div></div>
         <div class="launcher">
           <div class="apps">
             <div class="app yt" data-app="YouTube">YouTube</div><div class="app nf" data-app="Netflix">NETFLIX</div><div class="app prime" data-app="Prime">prime</div><div class="app" style="background:#fff" data-app="Settings">Settings</div>
           </div>
         </div>
-        <div id="debugPos" style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid var(--color-border);color:var(--color-muted-fg);font-family:ui-monospace,monospace;font-size:10px;padding:4px 6px;border-radius:6px">waiting…</div>
-        <div id="toast" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:var(--color-fg);color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;display:none;box-shadow:var(--shadow-md)"></div>
+        <div id="debugPos" role="status" aria-live="polite" style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid var(--color-border);color:var(--color-muted-fg);font-family:ui-monospace,monospace;font-size:10px;padding:4px 6px;border-radius:6px">waiting…</div>
+        <div id="toast" role="status" aria-live="polite" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:var(--color-fg);color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;display:none;box-shadow:var(--shadow-md)"></div>
       </div>
     </div>
   </section>
 
   <!-- SENSORS -->
-  <section id="tab-sensors" class="hidden">
+  <section id="tab-sensors" role="tabpanel" aria-labelledby="tab-btn-sensors" class="hidden">
     <div style="display:grid;gap:16px">
       <div class="card" style="text-align:center">
         <button id="enableBtn" class="btn btn-primary" style="width:100%">Tap to Enable Gyro / Motion</button>
@@ -211,7 +240,7 @@
       </div>
       <div class="card">
         <div class="section-title">Orientation (°)</div>
-        <div class="grid3"><div class="metric"><div class="label">Alpha (Z)</div><div class="value" id="alpha">—</div></div><div class="metric"><div class="label">Beta (X)</div><div class="value" id="beta">—</div></div><div class="metric"><div class="label">Gamma (Y)</div><div class="value" id="gamma">—</div></div></div>
+        <div class="grid3"><div class="metric"><div class="label">Alpha (Z)</div><div class="value" id="sAlpha">—</div></div><div class="metric"><div class="label">Beta (X)</div><div class="value" id="sBeta">—</div></div><div class="metric"><div class="label">Gamma (Y)</div><div class="value" id="sGamma">—</div></div></div>
         <div class="scene"><div class="cube" id="cube"><div class="face front">FRONT</div><div class="face back">BACK</div><div class="face right">RIGHT</div><div class="face left">LEFT</div><div class="face top">TOP</div><div class="face bottom">BOTTOM</div></div></div>
       </div>
       <div class="card">
@@ -224,7 +253,7 @@
 
   <div class="card">
     <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M10 13H8M16 17H8M13 13h1"/></svg> Log</div>
-    <div id="log" class="mono">ready — unified page: Remote sends, TV receives, Sensors show raw.</div>
+    <div id="log" class="mono" role="log" aria-live="polite" aria-atomic="false">ready — unified page: Remote sends, TV receives, Sensors show raw.</div>
   </div>
   <p class="hint">Tip: add to Home Screen for full-screen. TV needs same CODE. Global system cursor needs <code>android-tv</code> APK or <code>bridge-npx</code> on laptop.</p>
 </main>
@@ -234,37 +263,57 @@ const $=id=>document.getElementById(id);
 const logEl=$('log');
 function log(m){ logEl.textContent=new Date().toLocaleTimeString()+' '+m+'\n'+logEl.textContent; }
 
+// room/relay — hoisted before tabs to avoid TDZ (C1)
+function randRoom(){ return String(Math.floor(1000+Math.random()*9000)); }
+let room=new URLSearchParams(location.search).get('room') || (()=>{ try{ return localStorage.getItem('airmouse_room'); }catch{ return null; }})() || randRoom();
+try{ localStorage.setItem('airmouse_room',room); }catch{}
+function defaultRelay(){ return (location.protocol==='https:'?'wss://':'ws://')+location.host; }
+function sanitizeRelay(u){ if(location.protocol==='https:' && u.startsWith('ws://')) return 'wss://'+location.host; if(u.includes(':7889')) return u.replace(':7889',''); return u; }
+let relayRaw=new URLSearchParams(location.search).get('relay') || (()=>{ try{ return localStorage.getItem('airmouse_relay'); }catch{ return null; }})() || defaultRelay();
+let relay=sanitizeRelay(relayRaw); try{ if(relay!==relayRaw) localStorage.setItem('airmouse_relay',relay); }catch{}
+
 // tabs
 const tabs=document.querySelectorAll('.tab');
 function setTab(name){
-  tabs.forEach(b=>{ const on=b.dataset.tab===name; b.classList.toggle('active',on); b.setAttribute('aria-selected', on); });
+  tabs.forEach(b=>{ const on=b.dataset.tab===name; b.classList.toggle('active',on); b.setAttribute('aria-selected', String(on)); b.setAttribute('tabindex', on ? '0' : '-1'); });
   $('tab-remote').classList.toggle('hidden', name!=='remote');
   $('tab-tv').classList.toggle('hidden', name!=='tv');
   $('tab-sensors').classList.toggle('hidden', name!=='sensors');
+  $('tab-remote').setAttribute('aria-hidden', String(name!=='remote'));
+  $('tab-tv').setAttribute('aria-hidden', String(name!=='tv'));
+  $('tab-sensors').setAttribute('aria-hidden', String(name!=='sensors'));
   if(name==='tv') setTimeout(initPos,100);
-  history.replaceState(null,'','?room='+room+'&mode='+name);
+  try{ const u=new URL(location.href); u.searchParams.set('room', room); u.searchParams.set('mode', name); if(relay) u.searchParams.set('relay', relay); history.replaceState(null,'',u); }catch{}
 }
-tabs.forEach(b=> b.addEventListener('click', ()=> setTab(b.dataset.tab)));
+tabs.forEach((b,i)=>{ b.addEventListener('click', ()=> setTab(b.dataset.tab)); b.setAttribute('tabindex', b.classList.contains('active')?'0':'-1'); });
+window.addEventListener('popstate', ()=>{
+  const p=new URLSearchParams(location.search); const m=p.get('mode'); const r=p.get('room'); const rl=p.get('relay');
+  if(r && r!==room){ room=r; $('roomInput').value=room; $('roomCode').textContent=room; $('roomBadge').textContent='ROOM '+room; }
+  if(rl){ const srl=sanitizeRelay(rl); if(srl!==relay){ relay=srl; $('relayInput').value=relay; } }
+  if(m && ['remote','tv','sensors'].includes(m)) setTab(m);
+});
+document.querySelector('.tabs').addEventListener('keydown', e=>{
+  const cur=[...tabs].findIndex(b=>b.classList.contains('active'));
+  let nxt=null;
+  if(e.key==='ArrowRight') nxt=(cur+1)%tabs.length;
+  else if(e.key==='ArrowLeft') nxt=(cur-1+tabs.length)%tabs.length;
+  else if(e.key==='Home') nxt=0;
+  else if(e.key==='End') nxt=tabs.length-1;
+  if(nxt!==null){ e.preventDefault(); tabs[nxt].focus(); setTab(tabs[nxt].dataset.tab); }
+});
 const initialMode=new URLSearchParams(location.search).get('mode') || (window.innerWidth>768 ? 'tv' : 'remote');
 setTab(['remote','tv','sensors'].includes(initialMode)?initialMode:'remote');
 
 // secure + badges
 const sb=$('secureBadge');
-if(window.isSecureContext){ sb.textContent='🔒 Secure'; sb.className='badge ok'; } else { sb.textContent='⚠️ Not secure'; sb.className='badge err'; }
-
-// room/relay
-function randRoom(){ return String(Math.floor(1000+Math.random()*9000)); }
-let room=new URLSearchParams(location.search).get('room') || localStorage.getItem('airmouse_room') || randRoom();
-localStorage.setItem('airmouse_room',room);
-function defaultRelay(){ return (location.protocol==='https:'?'wss://':'ws://')+location.host; }
-function sanitizeRelay(u){ if(location.protocol==='https:' && u.startsWith('ws://')) return 'wss://'+location.host; if(u.includes(':7889')) return u.replace(':7889',''); return u; }
-let relayRaw=new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || defaultRelay();
-let relay=sanitizeRelay(relayRaw); if(relay!==relayRaw) localStorage.setItem('airmouse_relay',relay);
+if(window.isSecureContext){ sb.textContent='Secure'; sb.className='badge ok'; } else { sb.textContent='Not secure'; sb.className='badge err'; }
 $('roomInput').value=room; $('relayInput').value=relay;
 $('roomCode').textContent=room; $('roomBadge').textContent='ROOM '+room;
 function buildQr(){
-  const url=location.origin+location.pathname+'?room='+room+'&relay='+encodeURIComponent($('relayInput').value)+'&mode=remote';
-  $('qrBox').innerHTML='<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='+encodeURIComponent(url)+'" alt="QR">';
+  const url=location.origin+location.pathname+'?room='+encodeURIComponent(room)+'&relay='+encodeURIComponent($('relayInput').value)+'&mode=remote';
+  const img=new Image(); img.src='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='+encodeURIComponent(url); img.alt='QR for room '+room; img.loading='lazy';
+  img.onerror=()=>{ $('qrBox').innerHTML='<div style="padding:12px;font-size:11px;word-break:break-all">'+url+'</div>'; };
+  $('qrBox').innerHTML=''; $('qrBox').appendChild(img);
 }
 buildQr();
 
@@ -277,14 +326,12 @@ $('sens').addEventListener('input', e=>{ sensitivity=parseFloat(e.target.value);
 
 function setConn(txt, ok){
   const b=$('connBadge');
-  const dot=b.querySelector('.dot'); if(dot) dot.style.background= ok===true?'#10B981': ok===false?'#EF4444':'#94A3B8';
-  b.firstChild && (b.childNodes[1] ? b.childNodes[1].textContent=' '+txt : b.textContent=txt);
-  // fallback
-  if(!dot) b.textContent=txt;
+  b.textContent='';
+  const dot=document.createElement('span'); dot.className='dot'; dot.style.background= ok===true?'#10B981': ok===false?'#EF4444':'#94A3B8';
+  b.append(dot, document.createTextNode(' '+txt));
   b.className='badge '+(ok===true?'ok':ok===false?'err':'');
   if(ok===null) b.className='badge';
-  // keep text
-  b.innerHTML='<span class="dot" style="background:'+(ok===true?'#10B981':ok===false?'#EF4444':'#94A3B8')+'"></span> '+txt;
+  b.setAttribute('aria-live','polite');
 }
 function connect(){
   room=$('roomInput').value.trim()||room;
@@ -295,11 +342,20 @@ function connect(){
   buildQr();
   if(ws) try{ws.close()}catch{}
   const url=relay+(relay.includes('?')?'&':'?')+'room='+encodeURIComponent(room)+'&role=unified';
-  setConn('Connecting…',null); log('WS '+url);
+  const cl=$('connectLabel'), sp=$('connectSpinner'), cb=$('connectBtn'); if(cl) cl.textContent='Connecting…'; if(sp) sp.hidden=false; if(cb) cb.setAttribute('aria-busy','true'); setConn('Connecting…',null); log('WS '+url);
   try{ ws=new WebSocket(url); }catch(e){ setConn('Bad URL',false); return; }
-  ws.onopen=()=>{ setConn('Connected '+room,true); log('WS connected'); ws.send(JSON.stringify({type:'hello',role:'unified',room})); };
-  ws.onclose=()=> setConn('Offline',false);
-  ws.onerror=()=> log('WS error');
+  let wsRetry=0, wsTimer=null;
+  function scheduleReconnect(){
+    if(wsRetry>8) return;
+    const delay=Math.min(30000, 1000*Math.pow(1.6, wsRetry));
+    wsRetry++; log('reconnect in '+Math.round(delay/1000)+'s'); setConn('Reconnecting…',null);
+    clearTimeout(wsTimer); wsTimer=setTimeout(()=>{ if(navigator.onLine===false){ scheduleReconnect(); return; } connect(); }, delay);
+  }
+  ws.onopen=()=>{ const cl=$('connectLabel'), sp=$('connectSpinner'), cb=$('connectBtn'); if(cl) cl.textContent='Connected'; if(sp) sp.hidden=true; if(cb) cb.setAttribute('aria-busy','false'); wsRetry=0; setConn('Connected '+room,true); log('WS connected'); try{ ws.send(JSON.stringify({type:'hello',role:'unified',room})); }catch{} };
+  ws.onclose=()=>{ setConn('Offline',false); if(!document.hidden) scheduleReconnect(); };
+  ws.onerror=()=>{ log('WS error'); };
+  window.addEventListener('online', ()=>{ wsRetry=0; connect(); });
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && ws && ws.readyState!==1) scheduleReconnect(); });
   ws.onmessage=(ev)=>{
     const raw=typeof ev.data==='string'?ev.data:String(ev.data);
     let msg; try{ msg=JSON.parse(raw); }catch(e){ log('parse err '+e.message); return; }
@@ -307,6 +363,8 @@ function connect(){
   };
 }
 $('connectBtn').addEventListener('click', connect);
+$('roomInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); connect(); } });
+$('relayInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); connect(); } });
 connect();
 // PeerJS for github.io
 try{
@@ -319,13 +377,14 @@ try{
       tvPeer.on('connection', c=>{ peerConn=c; log('Peer phone connected'); c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw);}catch(e){} }); });
       window._tvPeer=tvPeer;
     }
-    const phonePeer=new Peer();
+    const phonePeer= usePeer ? new Peer() : null;
+    if(!phonePeer) { log('Peer disabled (local relay)'); } else {
     phonePeer.on('open', ()=>{
       const tvId='airtouch-tv-'+room;
       const c=phonePeer.connect(tvId);
       c.on('open', ()=>{ peerConn=c; log('Peer P2P connected'); setConn('P2P '+room,true); });
       c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw);}catch(e){} });
-      window._phonePeer=phonePeer;
+      window._phonePeer=phonePeer; }
     });
   }
 }catch(e){ log('peer init '+e.message); }
@@ -401,12 +460,23 @@ function handleRemote(msg){
   }
 }
 $('centerTvBtn').addEventListener('click', initPos);
-$('fsBtn').addEventListener('click', ()=> document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(()=>{}));
+const fsBtn=$('fsBtn');
+fsBtn.addEventListener('click', async ()=>{
+  try{
+    if(!document.fullscreenElement){ await document.documentElement.requestFullscreen(); fsBtn.textContent='Exit Fullscreen'; }
+    else { await document.exitFullscreen(); fsBtn.textContent='Fullscreen'; }
+  }catch(e){ log('fullscreen err '+e.message); }
+});
+document.addEventListener('fullscreenchange', ()=>{
+  const on=!!document.fullscreenElement;
+  if(fsBtn) fsBtn.textContent= on ? 'Exit Fullscreen' : 'Fullscreen';
+});
 stage.addEventListener('click', e=>{ const r=stage.getBoundingClientRect(); place(e.clientX-r.left, e.clientY-r.top); doClick(); });
 
 // --- Remote gyro ---
 let gyroEnabled=false, calibBeta=0, calibGamma=0, lastBeta=null, lastGamma=null;
 let invertX=true, invertY=false, autoCalib=true, stableCount=0;
+try{ const cb=parseFloat(localStorage.getItem('airmouse_calibBeta')); const cg=parseFloat(localStorage.getItem('airmouse_calibGamma')); if(!isNaN(cb) && !isNaN(cg)){ calibBeta=cb; calibGamma=cg; } const ac=localStorage.getItem('airmouse_autoCalib'); if(ac!==null) autoCalib=ac==='1'; }catch{}
 try{
   invertX=localStorage.getItem('airmouse_invertX') ? localStorage.getItem('airmouse_invertX')==='1' : true;
   invertY=localStorage.getItem('airmouse_invertY')==='1';
@@ -415,10 +485,11 @@ const invertWrap=$('invertWrap');
 invertWrap.innerHTML=`<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invX" ${invertX?'checked':''}> Invert X</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invY" ${invertY?'checked':''}> Invert Y</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="autoC" checked> Auto-calib</label>`;
 $('invX').addEventListener('change', e=>{ invertX=e.target.checked; localStorage.setItem('airmouse_invertX',invertX?'1':'0'); });
 $('invY').addEventListener('change', e=>{ invertY=e.target.checked; localStorage.setItem('airmouse_invertY',invertY?'1':'0'); });
-$('autoC').addEventListener('change', e=> autoCalib=e.target.checked);
+$('autoC').addEventListener('change', e=>{ autoCalib=e.target.checked; try{ localStorage.setItem('airmouse_autoCalib', autoCalib?'1':'0'); }catch{} });
 function doCalib(auto=false){
   if(lastBeta==null) return;
   calibBeta=lastBeta; calibGamma=lastGamma; stableCount=0;
+  try{ localStorage.setItem('airmouse_calibBeta', String(calibBeta)); localStorage.setItem('airmouse_calibGamma', String(calibGamma)); }catch{}
   log((auto?'auto-calib ':'calib ')+calibBeta.toFixed(1)+','+calibGamma.toFixed(1));
   $('gyroStatus').textContent=auto?'Auto-calibrated':'Calibrated';
   setTimeout(()=> $('gyroStatus').textContent='Listening', 1000);
@@ -430,7 +501,7 @@ function enableGyro(){
       if(typeof DeviceOrientationEvent.requestPermission==='function'){ const r=await DeviceOrientationEvent.requestPermission(); if(r!=='granted') throw new Error(r); }
       if(typeof DeviceMotionEvent.requestPermission==='function'){ const r=await DeviceMotionEvent.requestPermission(); if(r!=='granted') throw new Error(r); }
       attachGyro(); gyroEnabled=true;
-      $('gyroBtn').textContent='✓ Enabled'; $('gyroBtn').disabled=true; $('gyroStatus').textContent='Listening'; log('gyro enabled');
+      $('gyroBtn').textContent='Enabled'; $('gyroBtn').disabled=true; $('gyroStatus').textContent='Listening'; log('gyro enabled');
       let tries=0; const it=setInterval(()=>{ tries++; if(lastBeta!=null && autoCalib){ doCalib(true); clearInterval(it);} if(tries>20) clearInterval(it); },250);
     }catch(e){ log('gyro perm '+e.message); }
   })();
@@ -439,11 +510,16 @@ $('gyroBtn').addEventListener('click', enableGyro);
 $('gyroPad').addEventListener('click', ()=>{ if(!gyroEnabled) enableGyro(); else send({type:'click'}); });
 $('clickBtn').addEventListener('click', ()=> send({type:'click'}));
 let lastT=0, lastMotionT=0;
+let gyroPaused=false;
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ gyroPaused=true; }
+  else { gyroPaused=false; }
+});
 function attachGyro(){
   window.addEventListener('deviceorientation', e=>{
     lastBeta=e.beta; lastGamma=e.gamma;
     $('betaVal').textContent=e.beta?.toFixed(1)??'—'; $('gammaVal').textContent=e.gamma?.toFixed(1)??'—';
-    if(!gyroEnabled) return;
+    if(!gyroEnabled || gyroPaused) return;
     const now=performance.now(); if(now-lastT<32) return; lastT=now;
     if(Date.now()-lastMotionT>300){
       const b=(e.beta||0)-calibBeta, g=(e.gamma||0)-calibGamma;
@@ -461,7 +537,7 @@ function attachGyro(){
   }, true);
   window.addEventListener('devicemotion', e=>{
     const r=e.rotationRate; $('rateVal').textContent=r?(r.beta?.toFixed(1)??'—')+','+(r.gamma?.toFixed(1)??'—'):'—';
-    if(!gyroEnabled||!r) return;
+    if(!gyroEnabled||!r||gyroPaused) return;
     const hasRate=r && (r.alpha!=null||r.beta!=null||r.gamma!=null);
     if(hasRate) lastMotionT=Date.now(); else return;
     const now=performance.now(); if(now-lastT<16) return; lastT=now;
@@ -489,7 +565,7 @@ document.querySelectorAll('[data-key]').forEach(b=> b.addEventListener('click', 
 // sensors demo
 let lastO=null, lastM=null;
 function fmt(v){ return v==null?'—':Number(v).toFixed(1); }
-function onOrient(e){ lastO=e; $('alpha').textContent=fmt(e.alpha); $('beta').textContent=fmt(e.beta); $('gamma').textContent=fmt(e.gamma); const c=$('cube'); if(c) c.style.transform=`rotateX(${e.beta||0}deg) rotateY(${e.gamma||0}deg) rotateZ(${e.alpha||0}deg)`; updateRaw(); }
+function onOrient(e){ lastO=e; const a=$('sAlpha'), b=$('sBeta'), g=$('sGamma'); if(a) a.textContent=fmt(e.alpha); if(b) b.textContent=fmt(e.beta); if(g) g.textContent=fmt(e.gamma); const c=$('cube'); if(c) c.style.transform=`rotateX(${e.beta||0}deg) rotateY(${e.gamma||0}deg) rotateZ(${e.alpha||0}deg)`; updateRaw(); }
 function onMotion(e){ lastM=e; const r=e.rotationRate; $('rotA').textContent=fmt(r?.alpha); $('rotB').textContent=fmt(r?.beta); $('rotG').textContent=fmt(r?.gamma); updateRaw(); }
 function updateRaw(){ $('raw').textContent=JSON.stringify({orientation:lastO?{alpha:lastO.alpha,beta:lastO.beta,gamma:lastO.gamma}:null,motion:lastM?{rotationRate:lastM.rotationRate}:null},null,2); }
 async function enableSensors(){
@@ -498,7 +574,7 @@ async function enableSensors(){
     if(typeof DeviceMotionEvent.requestPermission==='function'){ const r=await DeviceMotionEvent.requestPermission(); if(r!=='granted') throw new Error(r); }
     window.addEventListener('deviceorientation', onOrient, true);
     window.addEventListener('devicemotion', onMotion, true);
-    $('enableBtn').disabled=true; $('enableBtn').textContent='✓ Listening'; $('status').textContent='Granted';
+    $('enableBtn').disabled=true; $('enableBtn').textContent='Listening'; $('status').textContent='Granted';
   }catch(e){ $('status').textContent=e.message; }
 }
 $('enableBtn').addEventListener('click', enableSensors);
