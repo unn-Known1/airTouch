@@ -262,32 +262,37 @@ function attachGyro(){
     if(Date.now() - lastMotionT > 300){
       const b=(e.beta||0)-calibBeta;
       const g=(e.gamma||0)-calibGamma;
-      // deadzone 2 deg
-      if(Math.abs(b)<2 && Math.abs(g)<2) return;
-      // map gamma -> dx, beta -> dy (invert dy)
-      const dx = g * 0.6 * sens;
-      const dy = b * 0.6 * sens;
+      // deadzone 1.5 deg
+      if(Math.abs(b)<1.5 && Math.abs(g)<1.5) return;
+      // map gamma -> dx, beta -> dy
+      const dx = g * 0.85 * sens;
+      const dy = b * 0.85 * sens;
+      // log throttled
+      // if(Math.random()<0.1) log(`orient dx=${dx.toFixed(1)} dy=${dy.toFixed(1)}`);
       send({type:'move', dx, dy});
     }
   }, true);
 
   window.addEventListener('devicemotion', e=>{
-    lastMotionT=Date.now();
     const r=e.rotationRate;
     document.getElementById('rate').textContent = r ? (r.beta?.toFixed(1)??'—')+','+(r.gamma?.toFixed(1)??'—') : '—';
     if(!gyroEnabled || !r) return;
+    const hasRate = r && (r.alpha!=null || r.beta!=null || r.gamma!=null);
+    if(hasRate) lastMotionT=Date.now(); // only block orientation if we have valid rate
+    if(!hasRate) return; // let orientation handler deal
     const now=performance.now();
     if(now-lastT < 16) return; // ~60Hz
     lastT=now;
     let dx=0, dy=0;
     // rotationRate gamma = left/right tilt velocity, beta = front/back
-    if(r.gamma!=null) dx = r.gamma * 0.12 * sens; // scale to pixels
-    if(r.beta!=null) dy = r.beta * 0.12 * sens;
+    if(r.gamma!=null) dx = r.gamma * 0.18 * sens; // slightly higher for visibility
+    if(r.beta!=null) dy = r.beta * 0.18 * sens;
     // deadzone
-    if(Math.abs(dx)<0.4 && Math.abs(dy)<0.4) return;
+    if(Math.abs(dx)<0.3 && Math.abs(dy)<0.3) return;
     // clamp
-    dx=Math.max(-40, Math.min(40, dx));
-    dy=Math.max(-40, Math.min(40, dy));
+    dx=Math.max(-45, Math.min(45, dx));
+    dy=Math.max(-45, Math.min(45, dy));
+    log(`gyro move dx=${dx.toFixed(1)} dy=${dy.toFixed(1)}`);
     send({type:'move', dx, dy});
   }, true);
 }

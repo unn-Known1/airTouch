@@ -110,6 +110,7 @@
       <p class="hint" style="text-align:left;margin-top:12px">Move phone to move the white cursor. Tap phone screen or press OK to click. Use Back/Home buttons from phone.</p>
     </div>
     <div id="toast" class="toast"></div>
+    <div id="debugPos" style="position:absolute;top:8px;right:12px;background:rgba(0,0,0,0.7);color:#8b8ba3;font-family:monospace;font-size:11px;padding:6px 8px;border-radius:8px;pointer-events:none">waiting for move…</div>
   </div>
 </div>
 
@@ -185,7 +186,15 @@ connect();
 // --- cursor ---
 const stage=document.getElementById('stage');
 const cursor=document.getElementById('cursor');
-let cx = stage.clientWidth/2, cy = stage.clientHeight/2;
+let cx = 400, cy = 300;
+function initPos(){
+  cx = (stage.clientWidth||800)/2;
+  cy = (stage.clientHeight||400)/2;
+  place(cx,cy);
+}
+setTimeout(initPos, 100);
+window.addEventListener('load', initPos);
+window.addEventListener('resize', initPos);
 function clamp(v, min,max){ return Math.max(min, Math.min(max, v)); }
 function place(x,y){
   cx=clamp(x, 12, stage.clientWidth-12);
@@ -233,13 +242,27 @@ function toast(t){
 
 // --- handle remote messages ---
 let sensitivity = 1.8; // tune for gyro
+let moveCount=0, lastMoveLog=0;
 function handleRemote(msg){
-  // log(JSON.stringify(msg).slice(0,120));
+  // debug: show every message type in console + occasional log
+  if(msg.type==='move'){
+    moveCount++;
+    // update debug overlay
+    const dbg=document.getElementById('debugPos');
+    if(dbg) dbg.textContent = `move #${moveCount} dx=${(msg.dx||0).toFixed(1)} dy=${(msg.dy||0).toFixed(1)} → cx=${Math.round(cx)} cy=${Math.round(cy)}`;
+    // log throttled
+    if(Date.now()-lastMoveLog>600){
+      log(`move dx=${(msg.dx||0).toFixed(1)} dy=${(msg.dy||0).toFixed(1)} (raw)`);
+      lastMoveLog=Date.now();
+    }
+  } else if(msg.type!=='peer_join'){
+    log(`recv ${msg.type} ${JSON.stringify(msg).slice(0,80)}`);
+  }
   switch(msg.type){
     case 'move': {
-      // dx,dy in pixels (phone computes from gyro)
       const dx=(msg.dx||0)*sensitivity;
       const dy=(msg.dy||0)*sensitivity;
+      if(Math.abs(dx)<0.01 && Math.abs(dy)<0.01) break; // ignore tiny
       place(cx+dx, cy+dy);
       break;
     }
