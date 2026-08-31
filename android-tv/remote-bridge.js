@@ -18,21 +18,30 @@ let room=arg('--room','5576');
 const doPair=args.includes('--pair');
 const sens=parseFloat(arg('--sens','1.0'));
 
+function isValidTvIp(ip){
+  if(!ip || typeof ip !== 'string') return false;
+  if(ip.length > 45) return false;
+  // allow IPv4, IPv6 bracket, or hostname
+  return /^(?:\d{1,3}\.){3}\d{1,3}$|^[a-zA-Z0-9.-]{1,253}$/.test(ip) && !/[;&|`$\\'"!*?~<>^()#]/.test(ip);
+}
+if(tvIp && !isValidTvIp(tvIp)){ console.error('Invalid --tv-ip'); process.exit(1); }
 if(!tvIp && !doPair){ console.error('Usage: --tv-ip 192.168.1.20 --relay wss://... --room 5576 [--pair]'); process.exit(1); }
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const certDir=path.join(__dirname,'.certs');
 fs.mkdirSync(certDir,{recursive:true});
-const certPath=path.join(certDir, `${tvIp}.pem`);
-const keyPath=path.join(certDir, `${tvIp}-key.pem`);
+const safeTvIp = (tvIp||'unknown').replace(/[^a-zA-Z0-9.-]/g,'_').slice(0,64);
+const certPath=path.join(certDir, `${safeTvIp}.pem`);
+const keyPath=path.join(certDir, `${safeTvIp}-key.pem`);
 
 function genCert(){
   if(fs.existsSync(certPath) && fs.existsSync(keyPath)) return;
   console.log('Generating self-signed cert for', tvIp);
-  // Use openssl via child_process for simplicity
+  // Use openssl via child_process with arg array to avoid shell injection
   try{
-    const {execSync}=awaitImport('child_process');
-    execSync(`openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" -days 365 -nodes -subj "/CN=AirTouch"`,{stdio:'ignore'});
+    const {spawnSync}=awaitImport('child_process');
+    const r=spawnSync('openssl',['req','-x509','-newkey','rsa:2048','-keyout',keyPath,'-out',certPath,'-days','365','-nodes','-subj','/CN=AirTouch'],{stdio:'ignore'});
+    if(r.status!==0) throw new Error('openssl failed');
   }catch{
     // fallback: generate via node crypto (minimal)
     const {generateKeyPairSync}=crypto;
@@ -83,14 +92,15 @@ function sendKey(keyCode){
     const msg=JSON.stringify({type:'remoteKey', keyCode:code, direction:0});
     try{ tvSocket.write(Buffer.from(msg)); console.log('TV key',keyCode,code); return true; }catch(e){ console.error('TV write err',e.message); }
   }
-  // ADB fallback
+  // ADB fallback - use spawnSync with args (no shell)
   try{
-    const {execSync}=awaitImportSync('child_process');
+    const {spawnSync}=awaitImportSync('child_process');
     const adbMap={up:19,down:20,left:21,right:22,enter:23,click:23,back:4,home:3,vol_up:24,vol_down:25,mute:164};
     const kc=adbMap[keyCode]||23;
-    execSync(`adb -s ${tvIp}:5555 shell input keyevent ${kc}`,{stdio:'ignore'});
-    console.log('ADB fallback key',kc);
-    return true;
+    if(!isValidTvIp(tvIp)) return false;
+    const r=spawnSync('adb',['-s',`${tvIp}:5555`,'shell','input','keyevent',String(kc)],{stdio:'ignore'});
+    if(r.status===0){ console.log('ADB fallback key',kc); return true; }
+    return false;
   }catch{ return false; }
 }
 function awaitImportSync(m){ try{ return require(m); }catch{ return null; } }
@@ -116,20 +126,26 @@ if(doPair){
       const j=JSON.parse(d.toString());
       const t=j.type;
       if(t==='move'){
-        // Move is handled as DPAD steps for global (no mouse), or ignore if you want mouse via ADB motionevent
-        // For remote app logic, we translate large dx/dy to DPAD
-        const dx=j.dx||0, dy=j.dy||0;
+        let dx=j.dx, dy=j.dy;
+        if(typeof dx!=='number'||!isFinite(dx)) dx=0;
+        if(typeof dy!=='number'||!isFinite(dy)) dy=0;
+        dx=Math.max(-100,Math.min(100,dx));
+        dy=Math.max(-100,Math.min(100,dy));
         if(Math.abs(dx)>12) sendKey(dx>0?'right':'left');
         if(Math.abs(dy)>12) sendKey(dy>0?'down':'up');
-      } else if(t==='click'){ const btn=j.button||'left'; if(btn==='right') sendKey('right'); else if(btn==='left') sendKey('enter'); else sendKey('enter'); }
-      else if(t==='key'){ sendKey(j.key); } else if(t==='tv_pair'){ // from webpage settings
-        if(j.tvIp) tvIp=j.tvIp;
-        if(j.room) room=j.room;
-        console.log('Pair request from webpage', tvIp, room);
-        connectTV();
+      } else if(t==='click'){ let btn=j.button||'left'; if(!['left','right'].includes(btn)) btn='left'; sendKey(btn==='right'?'right':'enter'); }
+      else if(t==='key'){
+        let k=j.key;
+        if(typeof k!=='string'||!/^[a-z_]+$/.test(k)) return;
+        sendKey(k.slice(0,24));
+      } else if(t==='tv_pair'){
+        if(j.tvIp && isValidTvIp(String(j.tvIp))){ tvIp=String(j.tvIp); console.log('Pair request from webpage', tvIp, room); connectTV(); }
+        if(j.room && /^[0-9a-zA-Z_-]{1,16}$/.test(String(j.room))) room=String(j.room);
       } else if(t==='tv_pair_pin'){
-        console.log('PIN from webpage', j.pin);
-        try{ if(tvSocket) tvSocket.write(Buffer.from(JSON.stringify({type:'pairingCode', code:j.pin}))); }catch(e){ console.error('PIN send err',e.message); }
+        let pin=String(j.pin||'').replace(/[^0-9]/g,'').slice(0,8);
+        if(!pin) return;
+        console.log('PIN from webpage', pin);
+        try{ if(tvSocket) tvSocket.write(Buffer.from(JSON.stringify({type:'pairingCode', code:pin}))); }catch(e){ console.error('PIN send err',e.message); }
       } else if(t==='hello'){ console.log('phone joined',j.room); }
     }catch(e){ console.error('msg err',e.message); }
   });

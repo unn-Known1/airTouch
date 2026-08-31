@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AirMouse</string>
+    <string name="accessibility_service_description">Moves system cursor via gesture dispatch. Receives move/click/key from WebSocket relay. No data collected.</string>
+</resources>

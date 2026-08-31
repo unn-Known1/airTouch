@@ -368,7 +368,12 @@ $('roomCode').textContent=room; $('roomBadge').textContent='ROOM '+room;
 function buildQr(){
   const url=location.origin+location.pathname+'?room='+encodeURIComponent(room)+'&relay='+encodeURIComponent($('relayInput').value)+'&mode=remote';
   const img=new Image(); img.src='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='+encodeURIComponent(url); img.alt='QR for room '+room; img.loading='lazy';
-  img.onerror=()=>{ $('qrBox').innerHTML='<div style="padding:12px;font-size:11px;word-break:break-all">'+url+'</div>'; };
+  img.onerror=()=>{
+    const d=document.createElement('div');
+    d.style.cssText='padding:12px;font-size:11px;word-break:break-all';
+    d.textContent=url;
+    $('qrBox').innerHTML=''; $('qrBox').appendChild(d);
+  };
   $('qrBox').innerHTML=''; $('qrBox').appendChild(img);
 }
 async function findTvOnWifi(){

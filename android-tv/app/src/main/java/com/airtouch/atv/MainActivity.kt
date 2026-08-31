@@ -18,8 +18,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val pad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(40,40,40,40) }
-        relayEt = EditText(this).apply { hint="wss://xxx.trycloudflare.com"; setText("wss://pottery-bikes-wheel-partly.trycloudflare.com") }
-        roomEt = EditText(this).apply { hint="room 5576"; setText("5576") }
+        relayEt = EditText(this).apply { hint="wss://your-relay.example.com"; setText("") }
+        roomEt = EditText(this).apply { hint="room 5576"; setText("") }
         toggleBtn = Button(this).apply { text="Start Global Mouse" }
         statusTv = TextView(this).apply { text="Accessibility: check Settings → Accessibility → AirMouse ON" }
         val hint = TextView(this).apply { text="Phone keeps using https://.../airmouse.html?room=5576\nThis TV app moves SYSTEM cursor via AccessibilityService." }

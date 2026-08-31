@@ -1,2 +1,26 @@
 .DS_Store
 node_modules/
+bridge-npx/node_modules/
+
+# Android
+android-tv/app/build/
+android-tv/build/
+android-tv/.gradle/
+android-tv/local.properties
+android-tv/.certs/
+*.apk
+!gradle/wrapper/gradle-wrapper.jar
+*.aab
+*.jks
+*.keystore
+.gradle/
+
+# Env / secrets
+.env
+.venv/
+__pycache__/
+*.pem
+*.secret
+
+# OS
+Thumbs.db

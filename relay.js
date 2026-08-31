@@ -7,14 +7,22 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname);
 
 const PORT = process.env.PORT || 7888;
 
 // rooms: roomCode -> Set<ws>
 const rooms = new Map();
+const ipConnections = new Map(); // ip -> count
+const MAX_CONN_PER_IP = 20;
+const MAX_ROOMS = 5000;
+const MAX_PAYLOAD = 16 * 1024;
 
 function getRoom(code){
-  if(!rooms.has(code)) rooms.set(code, new Set());
+  if(!rooms.has(code)) {
+    if(rooms.size >= MAX_ROOMS) return null;
+    rooms.set(code, new Set());
+  }
   return rooms.get(code);
 }
 
@@ -23,93 +31,227 @@ const MIME = {
   '.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml','.ico':'image/x-icon'
 };
 
+// Allowlist for static serving - prevents leaking source/config/.git
+const ALLOWED_STATIC = new Set([
+  '/', '/index.html', '/tv.html', '/airmouse.html',
+  '/manifest.json', '/sw.js'
+]);
+
+function securityHeaders(res){
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+}
+
 const server = createServer((req,res)=>{
   const url = new URL(req.url, 'http://localhost');
+  securityHeaders(res);
+
   // health
   if(url.pathname === '/health'){
-    res.writeHead(200, {'Content-Type':'application/json', 'Access-Control-Allow-Origin':'*'});
+    res.writeHead(200, {
+      'Content-Type':'application/json',
+      'Access-Control-Allow-Origin':'*',
+      'Cache-Control':'no-store'
+    });
     res.end(JSON.stringify({ok:true, rooms: rooms.size, port: PORT}));
     return;
   }
-  // websocket upgrade handled by wss, ignore here
+  // websocket upgrade handled by wss
   if(req.headers.upgrade === 'websocket'){
-    res.writeHead(426); res.end(); return;
+    res.writeHead(426, {'Content-Type':'text/plain'});
+    res.end('Upgrade Required - WS on same port');
+    return;
   }
-  // static file serving for tunnel-friendly single-port mode
-  let filePath = path.join(__dirname, url.pathname === '/' ? 'index.html' : url.pathname);
-  // prevent directory traversal
-  if(!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
-  // if directory, serve index
+
+  // static allowlist
+  let pathname = url.pathname;
+  if(pathname === '/') pathname = '/index.html';
+  if(!ALLOWED_STATIC.has(pathname) && !ALLOWED_STATIC.has(url.pathname)){
+    res.writeHead(404, {'Content-Type':'text/plain', 'Cache-Control':'no-store'});
+    res.end('Not found: '+pathname+'\nTry / , /tv.html , /airmouse.html');
+    return;
+  }
+
+  // safe resolve with traversal protection
+  const safePath = path.resolve(ROOT, '.' + pathname);
+  const rel = path.relative(ROOT, safePath);
+  if(rel.startsWith('..') || path.isAbsolute(rel) && rel.includes('..')){
+    res.writeHead(403, {'Content-Type':'text/plain'});
+    res.end('Forbidden');
+    return;
+  }
+  if(!safePath.startsWith(ROOT + path.sep) && safePath !== ROOT){
+    // also handle exact ROOT match
+    if(!ALLOWED_STATIC.has(pathname)){
+      res.writeHead(403, {'Content-Type':'text/plain'});
+      res.end('Forbidden');
+      return;
+    }
+  }
+
+  let filePath = safePath;
+  if(filePath === ROOT || filePath === ROOT + path.sep) filePath = path.join(ROOT, 'index.html');
   try{
     const stat = fs.statSync(filePath);
     if(stat.isDirectory()) filePath = path.join(filePath, 'index.html');
   }catch{}
   if(fs.existsSync(filePath) && fs.statSync(filePath).isFile()){
-    const ext = path.extname(filePath);
-    const mime = MIME[ext] || 'application/octet-stream';
-    res.writeHead(200, {'Content-Type': mime, 'Access-Control-Allow-Origin':'*', 'Cache-Control':'no-cache'});
+    // ensure file is under ROOT and allowlisted ext
+    const resolved = path.resolve(filePath);
+    if(!resolved.startsWith(ROOT + path.sep)){
+      res.writeHead(403); res.end('Forbidden'); return;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    if(!MIME[ext]){
+      res.writeHead(403); res.end('Forbidden type'); return;
+    }
+    const mime = MIME[ext];
+    res.writeHead(200, {
+      'Content-Type': mime,
+      'Cache-Control':'no-cache, no-store, must-revalidate',
+      'Cross-Origin-Embedder-Policy':'unsafe-none'
+    });
     fs.createReadStream(filePath).pipe(res);
     return;
   }
-  // fallback 404 -> serve index for SPA? or text
-  if(!fs.existsSync(filePath)){
-    res.writeHead(404, {'Content-Type':'text/plain', 'Access-Control-Allow-Origin':'*'});
-    res.end('Not found: '+url.pathname+'\nTry /tv.html , /airmouse.html , /index.html');
-    return;
-  }
+  res.writeHead(404, {'Content-Type':'text/plain', 'Cache-Control':'no-store'});
+  res.end('Not found: '+pathname);
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({
+  server,
+  maxPayload: MAX_PAYLOAD,
+  perMessageDeflate: false,
+  clientTracking: true
+});
+
+const ALLOWED_TYPES = new Set([
+  'move','click','scroll','up','down','left','right','center','key','hello','peer_join',
+  'tv_pair','tv_pair_pin','back','home','vol_up','vol_down','mute','menu','power'
+]);
+
+function isValidNumber(n){
+  return typeof n === 'number' && isFinite(n) && !isNaN(n);
+}
+
+function clampMove(v){
+  if(!isValidNumber(v)) return 0;
+  return Math.max(-100, Math.min(100, v));
+}
 
 wss.on('connection', (ws, req)=>{
+  const ip = req.socket.remoteAddress || 'unknown';
+  // per-IP connection limit
+  const cnt = ipConnections.get(ip) || 0;
+  if(cnt >= MAX_CONN_PER_IP){
+    ws.close(1013, 'Too many connections');
+    return;
+  }
+  ipConnections.set(ip, cnt + 1);
+
   const url = new URL(req.url, 'http://localhost');
   let room = url.searchParams.get('room') || '0000';
-  const role = url.searchParams.get('role') || 'unknown';
-  // sanitize room 4 digits
+  let role = url.searchParams.get('role') || 'unknown';
+  // strict sanitize
   room = room.replace(/[^0-9a-zA-Z_-]/g,'').slice(0,16) || '0000';
+  role = role.replace(/[^0-9a-zA-Z_-]/g,'').slice(0,24) || 'unknown';
+  const ALLOWED_ROLES = new Set(['tv','remote','unified','tv-bridge','tv-global','laptop-bridge','tv-remote-bridge','unknown']);
+  if(!ALLOWED_ROLES.has(role)) role = 'unknown';
 
   ws.room = room;
   ws.role = role;
+  ws._ip = ip;
   const set = getRoom(room);
+  if(!set){
+    ws.close(1013, 'Too many rooms'); return;
+  }
   set.add(ws);
-  console.log(`+ ${role} joined room ${room} (${set.size}) from ${req.socket.remoteAddress}`);
+  console.log(`+ ${role} joined room ${room} (${set.size}) from ${ip}`);
 
-  // tell others someone joined
+  // notify others
   for(const peer of set){
     if(peer !== ws && peer.readyState===1){
-      peer.send(JSON.stringify({type:'peer_join', role, room}));
+      try{ peer.send(JSON.stringify({type:'peer_join', role, room})); }catch{}
     }
   }
 
   ws.msgCount=0;
+  ws._rateWindow = Date.now();
+  ws._rateCount = 0;
+
   ws.on('message', (data)=>{
+    // rate limit: 60 msg/sec per socket
+    const now = Date.now();
+    if(now - ws._rateWindow > 1000){ ws._rateWindow = now; ws._rateCount = 0; }
+    ws._rateCount++;
+    if(ws._rateCount > 60){
+      // drop excess silently to mitigate flood
+      return;
+    }
+    // size already limited by maxPayload, but double-check
+    if(data.length > MAX_PAYLOAD) return;
+
     let msg;
-    try{ msg = JSON.parse(data.toString()); }catch{ msg = {raw: data.toString()}; }
+    try{
+      const str = data.toString();
+      if(str.length > MAX_PAYLOAD) return;
+      msg = JSON.parse(str);
+    }catch{
+      // malformed - drop without broadcast
+      return;
+    }
+    if(!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
+    if(!ALLOWED_TYPES.has(msg.type)) return;
+
+    // validate and sanitize numeric fields
+    if(msg.type === 'move'){
+      msg.dx = clampMove(msg.dx);
+      msg.dy = clampMove(msg.dy);
+      if(Math.abs(msg.dx) < 0.01 && Math.abs(msg.dy) < 0.01) return;
+    } else if(msg.type === 'scroll'){
+      msg.dy = clampMove(msg.dy);
+    } else if(msg.type === 'key'){
+      if(typeof msg.key !== 'string') return;
+      msg.key = msg.key.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,24);
+      if(!msg.key) return;
+    } else if(msg.type === 'click'){
+      const btn = msg.button || 'left';
+      if(typeof btn !== 'string' || !['left','right','middle'].includes(btn)) msg.button = 'left';
+      else msg.button = btn;
+    }
+
     msg.room = room;
-    // debug log first few moves per connection
+
     if(msg.type==='move' && ws.msgCount<5){
       console.log(`move room ${room} ${role} dx=${msg.dx} dy=${msg.dy} -> ${set.size-1} peers`);
       ws.msgCount++;
     } else if(msg.type && msg.type!=='move' && ws.msgCount<5){
       console.log(`${msg.type} room ${room} ${role}`);
+      if(ws.msgCount!==undefined) ws.msgCount++;
     }
+
     const out = JSON.stringify(msg);
     for(const peer of set){
       if(peer !== ws && peer.readyState===1){
-        peer.send(out);
+        try{ peer.send(out); }catch{}
       }
     }
   });
 
   ws.on('close', ()=>{
     set.delete(ws);
+    const c = ipConnections.get(ip) || 1;
+    ipConnections.set(ip, Math.max(0, c - 1));
+    if(c <= 1) ipConnections.delete(ip);
     console.log(`- ${role} left room ${room} (${set.size})`);
     if(set.size===0) rooms.delete(room);
   });
 
   ws.on('error', (e)=> console.error('ws error', e.message));
 
-  // heartbeat
   ws.isAlive=true;
   ws.on('pong', ()=> ws.isAlive=true);
 });
@@ -117,9 +259,13 @@ wss.on('connection', (ws, req)=>{
 // heartbeat interval
 setInterval(()=>{
   for(const ws of wss.clients){
-    if(ws.isAlive===false){ ws.terminate(); continue; }
+    if(ws.isAlive===false){ try{ ws.terminate(); }catch{} continue; }
     ws.isAlive=false;
-    ws.ping();
+    try{ ws.ping(); }catch{}
+  }
+  // cleanup stale ip entries
+  for(const [ip, cnt] of ipConnections){
+    if(cnt <= 0) ipConnections.delete(ip);
   }
 }, 30000);
 

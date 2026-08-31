@@ -1,5 +1,8 @@
 name: Build APK
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -10,6 +13,8 @@ on:
 
 jobs:
   build:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     defaults:
       run:

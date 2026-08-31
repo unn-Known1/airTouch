@@ -3,4 +3,4 @@
   android:accessibilityEventTypes="typeAllMask"
   android:accessibilityFlags="flagIncludeNotImportantViews|flagRetrieveInteractiveWindows"
   android:canPerformGestures="true"
-  android:description="@string/app_name" />
+  android:description="@string/accessibility_service_description" />
