@@ -1,59 +1,75 @@
-# airTouch — Gyro + Android TV AirMouse
+# AirTouch — Gyro Air Mouse for TV & Laptop
 
-iPhone gyro demo + Android TV Air Mouse (phone as air remote).
+Phone as gyro air mouse. **No install — just open on any device.** Dark TV-optimized UI, PeerJS P2P + WSS relay fallback, unified multitab.
+
+**Live (GitHub Pages):** https://unn-known1.github.io/airTouch/ — open same URL on TV/laptop (TV tab) and phone (Remote tab) with same `CODE`.
+
+**Tunnel (local dev):** https://pottery-bikes-wheel-partly.trycloudflare.com/?room=5576
 
 ## Pages
-- `index.html` — iPhone gyro demo (alpha/beta/gamma, rotationRate, 3D cube). Standalone sensor test.
-- `tv.html` — TV Receiver. Show on Android TV browser. Displays 4-digit room code + QR + virtual cursor + mock launcher.
-- `airmouse.html` — Phone Remote. Gyro air mouse / Touchpad / D-Pad + Back/Home/Vol. Connect via same room code.
+- `index.html` — **Unified** multitab: **Remote (Phone)** • **TV Receiver** • **Sensors** (alpha/beta/gamma + 3D cube). Single URL, `?mode=tv|remote|sensors` + `?room=CODE` + `?relay=`. Dark TV mode default (`#0F0F1A` / neon `#818CF8` / `#00E6A0`), light via `prefers-color-scheme`. Soft UI Evolution, Outfit/Work Sans, 4.5:1 contrast, 44px targets, keyboard + `aria-live`.
+- `tv.html` / `airmouse.html` — legacy standalone (kept for back-compat)
+- `relay.js` — unified static + WS relay on `7888` (single port for tunnel). Also builds to `https://unn-known1.github.io/airTouch/` via PeerJS (no relay needed).
+- `android-tv/` — `adb-bridge.py` (no APK) + `APK` via `AccessibilityService` for **global system cursor**
+- `bridge-npx/` — `npx airtouch-bridge --relay wss://... --room 5576` → laptop global cursor (pyautogui/xdotool/robotjs fallback)
+- `laptop-bridge.py` — Python alternative for laptop global
 
-## Quick Start (LAN & Tunnel)
+## Quick Start (no install)
 
-1. Install: `npm install` (in `airTouch/`)
-2. Run unified server: `node relay.js` → `http://0.0.0.0:7888` + `ws://0.0.0.0:7888` (serves static + WS on same port for tunnel)
-3. TV: open `http://<server-ip>:7888/tv.html` (Android TV browser). Note 4-digit code + QR.
-4. Phone: open `http://<server-ip>:7888/airmouse.html?room=CODE` (or scan QR), `Connect` → `Enable Gyro` → Allow → tilt to move.
+1. **TV/laptop:** open `https://unn-known1.github.io/airTouch/?mode=tv` → note 4-digit `CODE` + QR (PeerJS P2P, no relay)
+2. **Phone:** scan QR or open `https://unn-known1.github.io/airTouch/?room=CODE&mode=remote` → `Connect` → `Enable Gyro` → Allow → tilt / swipe
 
-Both devices use same `ws(s)://<host>:7888` automatically. **Tunnel fix (this was your bug):** forward **only `7888`** via `cloudflared tunnel --url http://localhost:7888` / `ngrok http 7888`. Then phone/TV both use `wss://<tunnel-host>` (same as page, no `:7889`). Old two-port setup (`7888 static + 7889 WS`) fails on tunnel + HTTPS (mixed-content + unreachable `ws://...:7889`).
+Both on same `CODE` → TV arrow follows. Works offline* via P2P (signaling needs internet).
 
-Tunnel example:
-```
+## Quick Start (local relay & tunnel)
+
+```bash
+npm install --prefix airTouch
+node airTouch/relay.js  # http://0.0.0.0:7888 + ws://0.0.0.0:7888
+# tunnel only 7888 (single port, wss same host)
 cloudflared tunnel --url http://localhost:7888
-# TV: https://xxx.trycloudflare.com/tv.html
-# Phone: scan QR -> https://xxx.trycloudflare.com/airmouse.html?room=CODE&relay=wss://xxx.trycloudflare.com
+# TV: https://xxx.trycloudflare.com/tv.html?room=5576
+# Phone: https://xxx.trycloudflare.com/airmouse.html?room=5576 (or unified)
+# or unified: https://xxx.trycloudflare.com/?room=5576&mode=tv|remote
 ```
+
+No separate `:7889` — old two-port fails on HTTPS (mixed-content).
 
 ## iPhone Gyro Permission
-Requires HTTPS or localhost + user gesture. If denied: Settings → Safari → Motion & Orientation Access → ON, reload.
+Requires `https://` or `localhost` + user gesture. If denied: `Settings → Safari → Motion & Orientation Access → ON`, reload. Auto-calibrates after 250ms, re-centers on stillness; `Invert X` default ON, `Invert Y` toggle, `Sensitivity` 0.5–4.
 
 ## Architecture
-Phone `airmouse.html` (gyro `rotationRate` + orientation deltas + touchpad) → WebSocket `relay.js` (room broadcast) → TV `tv.html` (cursor + virtual clicks). For system-wide Android TV control, build an APK with WebSocket client + `AccessibilityService` to inject `MotionEvent`/`KeyEvent` (web-only mode controls only the browser page).
+`airmouse (rotationRate + orientation + touchpad)` → `relay.js` (room broadcast) **or** `PeerJS DataChannel` (github.io) → `tv.html`/`index.html TV tab` (virtual cursor via `place()` + `highlight()`). Web-only = in-page cursor. For system-wide, use below.
 
-## Ports
-- `7888` unified (static + WebSocket relay) — **use this for tunnel**. No separate `7889` needed (old doc).
+## Global System Cursor
 
-## Deploy
-- GitHub Pages / Vercel for static (`index.html`, `tv.html`, `airmouse.html`) + host `relay.js` on Render/Fly.io/Raspberry Pi, set `?relay=wss://your-relay`.
-- Pure local: run both servers on a laptop on same WiFi as TV + phone.
-
-## Global Mouse (system-wide on Android TV)
-
-Browser `tv.html` only moves the *virtual cursor inside the page*. For **global system cursor** (control launcher, Netflix, any app):
-
-**Option A — No APK, immediate (recommended for test):**
+**Laptop (one-click, no pip):**
 ```bash
-pip install websocket-client
-# TV: Settings → Developer options → enable ADB over network (or adb tcpip 5555)
-adb connect 192.168.1.20:5555
-python3 android-tv/adb-bridge.py --relay wss://pottery-bikes-wheel-partly.trycloudflare.com --room 5576 --tv-ip 192.168.1.20
-# Keep this running on a laptop/Raspberry Pi on same WiFi as TV
-# Phone: https://.../airmouse.html?room=5576 → moves real TV pointer, click = tap
+git clone https://github.com/unn-Known1/airTouch.git
+cd airTouch/bridge-npx && npm install
+npx airtouch-bridge --relay wss://pottery-bikes-wheel-partly.trycloudflare.com --room 5576
+# or Python: python3 laptop-bridge.py --relay wss://... --room 5576
 ```
 
-**Option B — Native APK (no laptop needed):**
-1. Open `android-tv/` in Android Studio → Build APK
-2. `adb connect <tv-ip>:5555 && adb install app-debug.apk`
-3. TV Settings → Accessibility → AirMouse → ON → Open AirMouse app → enter `wss://...` + `5576` → Start
-4. Phone same `airmouse.html` now drives *system* cursor via `AccessibilityService.dispatchGesture`.
+**Android TV — Option A (no APK, immediate):**
+```bash
+pip install websocket-client
+adb connect 192.168.1.20:5555  # TV: Developer options → ADB over network
+python3 android-tv/adb-bridge.py --relay wss://... --room 5576 --tv-ip 192.168.1.20
+```
 
-Both reuse the same relay/room — phone unchanged.
+**Android TV — Option B (APK, no laptop):**
+```bash
+# Open android-tv/ in Android Studio → Build APK
+adb connect <tv-ip>:5555 && adb install app-debug.apk
+# TV: Settings → Accessibility → AirMouse ON → open app → wss://... + 5576 → Start
+```
+
+## Design System
+Soft UI Evolution • Real-Time / Operations • `design-system/airtouch/MASTER.md` (indigo `#4F46E5`→ `#818CF8` dark / accent `#047857`→ `#00E6A0` dark, `Outfit`/`Work Sans`, shadows `sm/md/lg`). Pre-delivery: no emoji, `cursor-pointer`, 150-300ms, 4.5:1, focus-visible, `prefers-reduced-motion`, 375/768/1024/1440.
+
+## Ports & Deploy
+- `7888` unified (static + WS) — use for tunnel. GitHub Pages serves static via PeerJS; self-host relay on Render/Fly if needed with `?relay=wss://your-relay`.
+
+## License
+MIT
