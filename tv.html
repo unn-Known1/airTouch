@@ -244,8 +244,8 @@ function toast(t){
 }
 
 // --- handle remote messages ---
-let sensitivity = 1.8; // tune for gyro
-let moveCount=0, lastMoveLog=0;
+var sensitivity = 1.8; // tune for gyro
+var moveCount=0, lastMoveLog=0;
 function handleRemote(msg){
   // debug: show every message type in console + occasional log
   if(msg.type==='move'){
