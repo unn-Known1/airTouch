@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AirTouch — WiFi HID (no APK/npx)</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:24px;line-height:1.5}
+  button{padding:12px 16px;border-radius:10px;border:1px solid #222;background:#111;color:#fff;font-weight:600;cursor:pointer}
+  pre{background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto;max-height:320px}
+  code{background:#eee;padding:2px 4px;border-radius:4px}
+  .card{border:1px solid #222;border-radius:12px;padding:16px;margin:12px 0}
+</style>
+</head>
+<body>
+<h1>AirTouch WiFi HID — No APK/npx</h1>
+<p><b>Goal:</b> global OS cursor via WiFi, <b>without</b> installing APK or running <code>npx</code> on the TV/laptop.</p>
+
+<div class="card">
+<h3>Why pure WiFi can’t be global (browser sandbox)</h3>
+<p>A page at <code>https://unn-known1.github.io/airTouch/</code> on your TV/laptop <em>can</em> receive phone gyro via PeerJS/WebSocket and move a <em>virtual cursor inside that tab</em> (we already do in <code>index.html TV tab</code>).<br>
+But it <b>cannot</b> call <code>SendInput</code>/<code>dispatchGesture</code> outside the tab — that needs OS permission. So WiFi-only global needs <b>one tiny receiver that has that permission</b>.</p>
+<p><b>Smallest “no APK/npx” receivers:</b></p>
+<ul>
+  <li><b>ESP32 WiFi HID dongle ($3–6)</b> — plug into TV/laptop USB, enumerates as real mouse. This page (over WiFi, PeerJS room) sends <code>dx,dy</code> → dongle → HID reports → moves real cursor. <b>No software on TV/laptop at all.</b></li>
+  <li><b>Bookmarklet / PWA with one-time Web Serial permission</b> — page uses <code>navigator.serial</code> to talk to the same dongle, still no install.</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Try it: WiFi dongle mode</h3>
+<ol>
+  <li>Flash ESP32 with <code>airtouch-wifi-hid.ino</code> (provided in repo <code>wifi-hid/</code> — WiFi + HID over USB)</li>
+  <li>Plug dongle into TV/laptop USB</li>
+  <li>Open this page on phone <b>and</b> on TV/laptop? No — only phone needs page. Dongle auto-joins your PeerJS room <code id="roomDisp">----</code> via WiFi.</li>
+  <li>Phone gyro now → WiFi → dongle → real HID mouse</li>
+</ol>
+<button id="connect">Connect to dongle via Web Serial (select ESP32)</button>
+<button id="simulate">Simulate gyro move 20,20 via PeerJS</button>
+<pre id="log">ready
+</pre>
+</div>
+
+<div class="card">
+<h3>Alternative: “Fake global” — fullscreen web launcher (no dongle, no install, but only inside page)</h3>
+<p>We can make <code>index.html TV tab</code> go fullscreen and render a launcher that <em>looks</em> like the system UI. Phone moves cursor inside that fullscreen page — feels global, but can’t reach Netflix outside page. Good for demos, not for real global.</p>
+<button onclick="location.href='./?mode=tv&fullscreen=1'">Open fullscreen TV launcher (fake global)</button>
+</div>
+
+<script>
+const logEl=document.getElementById('log');
+function log(m){ logEl.textContent=new Date().toLocaleTimeString()+' '+m+'\n'+logEl.textContent; }
+let port=null;
+const room=new URLSearchParams(location.search).get('room') || '5576';
+document.getElementById('roomDisp').textContent=room;
+
+document.getElementById('connect').onclick=async()=>{
+  if(!('serial' in navigator)){ log('Web Serial not supported — use Chrome/Edge'); return; }
+  try{
+    port=await navigator.serial.requestPort();
+    await port.open({baudRate:115200});
+    log('Serial opened to dongle');
+    // send handshake with room
+    const enc=new TextEncoder();
+    const w=port.writable.getWriter();
+    await w.write(enc.encode(JSON.stringify({type:'hello', room})+'\n'));
+    w.releaseLock();
+    log('Sent hello room='+room+' — dongle will now join PeerJS and act as HID');
+    // also listen for dongle logs
+    const r=port.readable.getReader();
+    while(true){
+      const {value,done}=await r.read();
+      if(done) break;
+      log('dongle: '+new TextDecoder().decode(value));
+    }
+  }catch(e){ log('serial err: '+e.message); }
+};
+
+document.getElementById('simulate').onclick=()=>{
+  // Simulate what phone would send — for testing without phone
+  // In real use, phone's index.html Remote tab sends via PeerJS room; dongle receives via WiFi and injects HID
+  log('Simulate: would send {type:"move",dx:20,dy:20} to room '+room+' via PeerJS — dongle would move 20px');
+  // If you have a PeerJS connection open, you could also send here
+};
+</script>
+<p><a href="./">← Back</a> • <a href="./ble-hid.html">BLE HID (TV as central) →</a></p>
+</body>
+</html>

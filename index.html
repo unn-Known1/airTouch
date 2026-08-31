@@ -256,6 +256,15 @@
     </div>
   </section>
 
+  <div class="card" style="border-style:dashed">
+    <div class="section-title">Experimental — Global without APK/npx</div>
+    <p class="hint" style="text-align:left">Pure web can’t move OS cursor (sandbox). Closest no-install globals:</p>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <a href="./ble-hid.html" class="btn btn-secondary" style="flex:1">BLE HID (TV central)</a>
+      <a href="./wifi-hid.html" class="btn btn-secondary" style="flex:1">WiFi HID dongle ($3)</a>
+    </div>
+    <p class="hint" style="text-align:left;margin-top:8px">Phone alone can’t advertise as BLE mouse from browser (central only). WiFi dongle enumerates as real USB mouse — no software on TV/laptop.</p>
+  </div>
   <div class="card">
     <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M10 13H8M16 17H8M13 13h1"/></svg> Log</div>
     <div id="log" class="mono" role="log" aria-live="polite" aria-atomic="false">ready — unified page: Remote sends, TV receives, Sensors show raw.</div>
