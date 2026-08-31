@@ -119,6 +119,7 @@
   .face{position:absolute;width:100px;height:100px;border:1px solid rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;backdrop-filter:blur(2px)}
   .face.front{background:rgba(99,102,241,.88);color:#fff;transform:rotateY(0) translateZ(50px)} .face.back{background:rgba(99,102,241,.5);color:#fff;transform:rotateY(180deg) translateZ(50px)} .face.right{background:rgba(5,150,105,.85);color:#fff;transform:rotateY(90deg) translateZ(50px)} .face.left{background:rgba(5,150,105,.5);color:#fff;transform:rotateY(-90deg) translateZ(50px)} .face.top{background:rgba(129,140,248,.85);color:#fff;transform:rotateX(90deg) translateZ(50px)} .face.bottom{background:rgba(129,140,248,.5);color:#fff;transform:rotateX(-90deg) translateZ(50px)}
   .hidden{display:none!important}
+  @media(max-width:480px){ .stats-row{grid-template-columns:1fr!important} }
   @media(min-width:768px){ .shell{padding:20px} }
   @media(min-width:1024px){ .shell{max-width:1024px} .grid3{grid-template-columns:repeat(3,1fr)} }
   @media(min-width:1440px){ .shell{max-width:1100px} }
@@ -182,7 +183,7 @@
       <p style="font-size:10px;color:var(--color-muted-fg);margin-top:6px">*Static on GitHub Pages; P2P needs internet for signaling, then direct.</p>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px" class="stats-row">
     <div style="background:var(--color-card);border:1px solid var(--color-border);border-radius:10px;padding:10px;text-align:center"><div style="font-size:11px;color:var(--color-muted-fg);letter-spacing:.06em">LATENCY</div><div style="font-weight:700">~16ms</div><div style="font-size:10px;color:var(--color-muted-fg)">P2P / WS</div></div>
     <div style="background:var(--color-card);border:1px solid var(--color-border);border-radius:10px;padding:10px;text-align:center"><div style="font-size:11px;color:var(--color-muted-fg);letter-spacing:.06em">ROOMS</div><div style="font-weight:700">4-digit</div><div style="font-size:10px;color:var(--color-muted-fg)">Ephemeral</div></div>
     <div style="background:var(--color-card);border:1px solid var(--color-border);border-radius:10px;padding:10px;text-align:center"><div style="font-size:11px;color:var(--color-muted-fg);letter-spacing:.06em">INPUTS</div><div style="font-weight:700">Gyro • Touch • D-Pad</div><div style="font-size:10px;color:var(--color-muted-fg)">44px targets</div></div>
@@ -345,7 +346,7 @@ window.addEventListener('popstate', ()=>{
   const p=new URLSearchParams(location.search); const m=p.get('mode'); const r=p.get('room'); const rl=p.get('relay');
   if(r && r!==room){ room=r; $('roomInput').value=room; $('roomCode').textContent=room; $('roomBadge').textContent='ROOM '+room; }
   if(rl){ const srl=sanitizeRelay(rl); if(srl!==relay){ relay=srl; $('relayInput').value=relay; } }
-  if(m && ['remote','tv','sensors'].includes(m)) setTab(m);
+  if(m && ['remote','tv','sensors','settings'].includes(m)) setTab(m);
 });
 document.querySelector('.tabs').addEventListener('keydown', e=>{
   const cur=[...tabs].findIndex(b=>b.classList.contains('active'));
@@ -417,14 +418,14 @@ try{
   if(shareBtn && navigator.share){
     shareBtn.style.display='inline-flex';
     shareBtn.addEventListener('click', async ()=>{
-      const url=location.origin+location.pathname+'?room='+encodeURIComponent(room)+'&mode=remote';
+      const url=location.origin+location.pathname+'?room='+encodeURIComponent(room)+'&relay='+encodeURIComponent(relay)+'&mode=remote';
       try{ await navigator.share({title:'AirTouch', text:'Join my AirTouch room '+room, url}); }catch{}
     });
   } else if(shareBtn){
     shareBtn.style.display='inline-flex';
     shareBtn.textContent='Copy link';
     shareBtn.addEventListener('click', async ()=>{
-      const url=location.origin+location.pathname+'?room='+encodeURIComponent(room)+'&mode=remote';
+      const url=location.origin+location.pathname+'?room='+encodeURIComponent(room)+'&relay='+encodeURIComponent(relay)+'&mode=remote';
       try{ await navigator.clipboard.writeText(url); shareBtn.textContent='Copied!'; setTimeout(()=> shareBtn.textContent='Copy link', 1500); }catch{}
     });
   }
@@ -437,12 +438,16 @@ try{
 }catch(e){}
 
 // ws + peer
-let ws=null, peer=null, peerConn=null;
+let ws=null, peerConn=null;
 var sensitivity=1.8, moveCount=0, lastMoveLog=0;
 try{ const s=parseFloat(localStorage.getItem('airmouse_sens')||'1.8'); if(!isNaN(s)) sensitivity=s; }catch{}
 $('sens').value=sensitivity; $('sensVal').textContent=sensitivity.toFixed(1);
 $('sens').addEventListener('input', e=>{ sensitivity=parseFloat(e.target.value); $('sensVal').textContent=sensitivity.toFixed(1); try{localStorage.setItem('airmouse_sens',sensitivity);}catch{} });
 
+// Global listeners — registered once, not per-reconnect
+let _wsRetry=0;
+window.addEventListener('online', ()=>{ _wsRetry=0; try{connect();}catch{} });
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && ws && ws.readyState!==1){ try{connect();}catch{} } });
 function setConn(txt, ok){
   const b=$('connBadge');
   b.textContent='';
@@ -463,18 +468,17 @@ function connect(){
   const url=relay+(relay.includes('?')?'&':'?')+'room='+encodeURIComponent(room)+'&role=unified';
   const cl=$('connectLabel'), sp=$('connectSpinner'), cb=$('connectBtn'); if(cl) cl.textContent='Connecting…'; if(sp) sp.hidden=false; if(cb) cb.setAttribute('aria-busy','true'); setConn('Connecting…',null); log('WS '+url);
   try{ ws=new WebSocket(url); }catch(e){ setConn('Bad URL',false); return; }
-  let wsRetry=0, wsTimer=null;
+  let wsTimer=null;
   function scheduleReconnect(){
-    if(wsRetry>8) return;
-    const delay=Math.min(30000, 1000*Math.pow(1.6, wsRetry));
-    wsRetry++; log('reconnect in '+Math.round(delay/1000)+'s'); setConn('Reconnecting…',null);
+    if(_wsRetry>8) return;
+    const delay=Math.min(30000, 1000*Math.pow(1.6, _wsRetry));
+    _wsRetry++; log('reconnect in '+Math.round(delay/1000)+'s'); setConn('Reconnecting…',null);
     clearTimeout(wsTimer); wsTimer=setTimeout(()=>{ if(navigator.onLine===false){ scheduleReconnect(); return; } connect(); }, delay);
   }
-  ws.onopen=()=>{ initPeerJS(); const cl=$('connectLabel'), sp=$('connectSpinner'), cb=$('connectBtn'); if(cl) cl.textContent='Connected'; if(sp) sp.hidden=true; if(cb) cb.setAttribute('aria-busy','false'); wsRetry=0; setConn('Connected '+room,true); log('WS connected'); try{ ws.send(JSON.stringify({type:'hello',role:'unified',room})); }catch{} };
+  ws.onopen=()=>{ const cl=$('connectLabel'), sp=$('connectSpinner'), cb=$('connectBtn'); if(cl) cl.textContent='Connected'; if(sp) sp.hidden=true; if(cb) cb.setAttribute('aria-busy','false'); _wsRetry=0; setConn('Connected '+room,true); log('WS connected'); try{ ws.send(JSON.stringify({type:'hello',role:'unified',room})); }catch{} };
   ws.onclose=()=>{ setConn('Offline',false); if(!document.hidden) scheduleReconnect(); };
   ws.onerror=()=>{ log('WS error'); };
-  window.addEventListener('online', ()=>{ wsRetry=0; connect(); });
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && ws && ws.readyState!==1) scheduleReconnect(); });
+
   ws.onmessage=(ev)=>{
     const raw=typeof ev.data==='string'?ev.data:String(ev.data);
     let msg; try{ msg=JSON.parse(raw); }catch(e){ log('parse err '+e.message); return; }
@@ -541,7 +545,8 @@ function send(obj){
 // --- TV cursor ---
 const stage=$('stage'), cursor=$('cursor');
 let cx=400, cy=180;
-function initPos(){ const w=stage.clientWidth, h=stage.clientHeight; if(!w || !h){ /* TV tab hidden — defer */ setTimeout(initPos, 300); return; } cx=w/2; cy=h/2; place(cx,cy); }
+let _initPosTries=0;
+function initPos(){ const w=stage.clientWidth, h=stage.clientHeight; if(!w || !h){ if(++_initPosTries<20) setTimeout(initPos, 300); return; } _initPosTries=0; cx=w/2; cy=h/2; place(cx,cy); }
 setTimeout(initPos,200);
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 function place(x,y){
@@ -552,7 +557,7 @@ function place(x,y){
   cursor.style.left=cx+'px'; cursor.style.top=cy+'px';
   try{ highlight(); }catch(e){}
 }
-place(cx,cy);
+if(stage.clientWidth && stage.clientHeight) place(cx,cy); else setTimeout(initPos, 300);
 let lastHover=null;
 function highlight(){
   try{
@@ -665,8 +670,8 @@ try{
   if(inv2){
     inv2.innerHTML=`<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invX2" ${invertX?'checked':''}> Invert X</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invY2" ${invertY?'checked':''}> Invert Y</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="volClick2" ${(()=>{try{return localStorage.getItem('airmouse_volClick')==='1'}catch{return true}})()?'checked':''}> Vol as L/R</label>`;
     const ix2=$('invX2'), iy2=$('invY2'), vc2=$('volClick2');
-    if(ix2) ix2.addEventListener('change', e=>{ invertX=e.target.checked; const a=$('invX'); if(a) a.checked=invertX; localStorage.setItem('airmouse_invertX',invertX?'1':'0'); });
-    if(iy2) iy2.addEventListener('change', e=>{ invertY=e.target.checked; const b=$('invY'); if(b) b.checked=invertY; localStorage.setItem('airmouse_invertY',invertY?'1':'0'); });
+    if(ix2) ix2.addEventListener('change', e=>{ invertX=e.target.checked; const a=$('invX'); if(a) a.checked=invertX; try{localStorage.setItem('airmouse_invertX',invertX?'1':'0');}catch{} });
+    if(iy2) iy2.addEventListener('change', e=>{ invertY=e.target.checked; const b=$('invY'); if(b) b.checked=invertY; try{localStorage.setItem('airmouse_invertY',invertY?'1':'0');}catch{} });
     if(vc2) vc2.addEventListener('change', e=>{ const v=e.target.checked; const c=$('volClickChk'); if(c) c.checked=v; try{ localStorage.setItem('airmouse_volClick', v?'1':'0'); }catch{}; const up=document.querySelector('[data-key="vol_up"]'); const down=document.querySelector('[data-key="vol_down"]'); if(up) up.innerHTML=v?'R Click':'Vol +'; if(down) down.innerHTML=v?'L Click':'Vol −'; });
   }
 }catch(e){ log('settings init '+e.message); }
