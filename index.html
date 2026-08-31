@@ -261,15 +261,6 @@
     </div>
   </section>
 
-  <div class="card" style="border-style:dashed">
-    <div class="section-title">Experimental — Global without APK/npx</div>
-    <p class="hint" style="text-align:left">Pure web can’t move OS cursor (sandbox). Closest no-install globals:</p>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-      <a href="./ble-hid.html" class="btn btn-secondary" style="flex:1">BLE HID (TV central)</a>
-      <a href="./wifi-hid.html" class="btn btn-secondary" style="flex:1">WiFi HID dongle ($3)</a>
-    </div>
-    <p class="hint" style="text-align:left;margin-top:8px">Phone alone can’t advertise as BLE mouse from browser (central only). WiFi dongle enumerates as real USB mouse — no software on TV/laptop.</p>
-  </div>
   <div class="card">
     <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M10 13H8M16 17H8M13 13h1"/></svg> Log</div>
     <div id="log" class="mono" role="log" aria-live="polite" aria-atomic="false">ready — unified page: Remote sends, TV receives, Sensors show raw.</div>
@@ -516,7 +507,12 @@ function handleRemote(msg){
       if(Math.abs(dx)<0.01 && Math.abs(dy)<0.01) break;
       place(cx+dx, cy+dy); break;
     }
-    case 'click': doClick(); break;
+    case 'click': {
+      const btn=msg.button||'left';
+      if(btn==='right'){ log('right click'); toast('Right click'); cursor.style.setProperty('--cursor-ring','#f59e0b'); setTimeout(()=>cursor.style.removeProperty('--cursor-ring'),300); }
+      else if(btn==='left'){ log('left click'); }
+      doClick(); break;
+    }
     case 'up': place(cx,cy-60); break;
     case 'down': place(cx,cy+60); break;
     case 'left': place(cx-80,cy); break;
@@ -550,10 +546,19 @@ try{
   invertY=localStorage.getItem('airmouse_invertY')==='1';
 }catch{}
 const invertWrap=$('invertWrap');
-invertWrap.innerHTML=`<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invX" ${invertX?'checked':''}> Invert X</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invY" ${invertY?'checked':''}> Invert Y</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="autoC" checked> Auto-calib</label>`;
+invertWrap.innerHTML=`<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invX" ${invertX?'checked':''}> Invert X</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invY" ${invertY?'checked':''}> Invert Y</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="autoC" checked> Auto-calib</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="volClickChk"> Vol as L/R Click</label>`;
 $('invX').addEventListener('change', e=>{ invertX=e.target.checked; localStorage.setItem('airmouse_invertX',invertX?'1':'0'); });
 $('invY').addEventListener('change', e=>{ invertY=e.target.checked; localStorage.setItem('airmouse_invertY',invertY?'1':'0'); });
 $('autoC').addEventListener('change', e=>{ autoCalib=e.target.checked; try{ localStorage.setItem('airmouse_autoCalib', autoCalib?'1':'0'); }catch{} });
+let volAsClick=false; try{ volAsClick=localStorage.getItem('airmouse_volClick')==='1'; }catch{}
+const volChk=$('volClickChk'); 
+function updateVolLabels(){
+  const up=document.querySelector('[data-key="vol_up"]');
+  const down=document.querySelector('[data-key="vol_down"]');
+  if(up) up.innerHTML = volAsClick ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="8"/></svg> R Click' : 'Vol +';
+  if(down) down.innerHTML = volAsClick ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/></svg> L Click' : 'Vol −';
+}
+if(volChk){ volChk.checked=volAsClick; updateVolLabels(); volChk.addEventListener('change', e=>{ volAsClick=e.target.checked; try{ localStorage.setItem('airmouse_volClick', volAsClick?'1':'0'); }catch{}; updateVolLabels(); log('Vol as click '+(volAsClick?'ON':'OFF')); if(volAsClick) log('Vol ↑=Right click • Vol ↓=Left click (or physical Vol keys where supported)'); }); }
 function doCalib(auto=false){
   if(lastBeta==null) return;
   calibBeta=lastBeta; calibGamma=lastGamma; stableCount=0;
@@ -634,7 +639,25 @@ pad.addEventListener('mouseleave', ()=>{ padActive=false; pad.classList.remove('
 document.querySelectorAll('[data-dir]').forEach(b=> b.addEventListener('click', ()=> send({type:b.dataset.dir})));
 $('okBtn').addEventListener('click', ()=> send({type:'click'}));
 $('centerBtn').addEventListener('click', ()=> send({type:'center'}));
-document.querySelectorAll('[data-key]').forEach(b=> b.addEventListener('click', ()=> send({type:'key',key:b.dataset.key})));
+document.querySelectorAll('[data-key]').forEach(b=> b.addEventListener('click', ()=>{
+  const k=b.dataset.key;
+  if(volAsClick && (k==='vol_up' || k==='vol_down')){
+    const btn = k==='vol_up' ? 'right' : 'left';
+    try{ navigator.vibrate&&navigator.vibrate(12); }catch{}
+    send({type:'click', button:btn}); log('Vol '+k+' → '+btn+' click');
+    return;
+  }
+  send({type:'key',key:k});
+}));
+ // Physical volume keys (Android Chrome: AudioVolumeUp/Down, iPhone: no event — will not fire)
+ window.addEventListener('keydown', e=>{
+  const k=e.key||e.code;
+  if(k==='AudioVolumeUp' || k==='VolumeUp'){
+    if(volAsClick){ e.preventDefault(); try{ navigator.vibrate&&navigator.vibrate(12);}catch{} send({type:'click', button:'right'}); log('HW Vol Up → right click'); }
+  } else if(k==='AudioVolumeDown' || k==='VolumeDown'){
+    if(volAsClick){ e.preventDefault(); send({type:'click', button:'left'}); log('HW Vol Down → left click'); }
+  }
+});
 
 // sensors demo
 let lastO=null, lastM=null;

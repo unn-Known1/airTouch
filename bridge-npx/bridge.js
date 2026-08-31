@@ -21,7 +21,7 @@ try{
   const robot = require('robotjs');
   const sz=robot.getScreenSize(); W=sz.width; H=sz.height; x=W/2; y=H/2;
   moveFn=(dx,dy)=>{ x=clamp(x+dx,0,W-1); y=clamp(y+dy,0,H-1); robot.moveMouse(Math.round(x),Math.round(y)); };
-  clickFn=()=> robot.mouseClick();
+  clickFn=(btn='left')=> robot.mouseClick(btn);
   scrollFn=(dy)=> robot.scrollMouse(0, Math.round(dy*2));
   backend='robotjs';
   console.log(`backend robotjs ${W}x${H}`);
@@ -33,7 +33,7 @@ if(!moveFn){
     const out=execSync('python3 -c "import pyautogui; w,h=pyautogui.size(); print(f\'{w} {h}\')"').toString().trim().split(' ');
     W=parseInt(out[0])||1920; H=parseInt(out[1])||1080; x=W/2; y=H/2;
     moveFn=(dx,dy)=>{ x=clamp(x+dx,0,W-1); y=clamp(y+dy,0,H-1); execSync(`python3 -c "import pyautogui; pyautogui.moveTo(${Math.round(x)},${Math.round(y)})"`); };
-    clickFn=()=> execSync('python3 -c "import pyautogui; pyautogui.click()"');
+    clickFn=(btn='left')=> execSync(`python3 -c "import pyautogui; pyautogui.click(button='${btn}')"`);
     scrollFn=(dy)=> execSync(`python3 -c "import pyautogui; pyautogui.scroll(${Math.round(dy)})"`);
     backend='pyautogui';
     console.log(`backend pyautogui ${W}x${H}`);
@@ -44,7 +44,7 @@ if(!moveFn && os.platform()==='linux'){
     try{ const out=execSync('xdotool getdisplaygeometry').toString().trim().split(' '); W=parseInt(out[0])||1920; H=parseInt(out[1])||1080; }catch{}
     x=W/2; y=H/2;
     moveFn=(dx,dy)=>{ x=clamp(x+dx,0,W-1); y=clamp(y+dy,0,H-1); spawnSync('xdotool',['mousemove','--sync', String(Math.round(x)), String(Math.round(y))]); };
-    clickFn=()=> spawnSync('xdotool',['click','1']);
+    clickFn=(btn='left')=> spawnSync('xdotool',['click', btn==='right'?'3':'1']);
     scrollFn=(dy)=> spawnSync('xdotool',['click', dy>0?'4':'5']);
     backend='xdotool';
     console.log(`backend xdotool ${W}x${H} (sudo apt install xdotool)`);
@@ -53,7 +53,7 @@ if(!moveFn && os.platform()==='linux'){
 if(!moveFn && os.platform()==='darwin'){
   try{ execSync('which cliclick',{stdio:'ignore'}); 
     moveFn=(dx,dy)=>{ x=clamp(x+dx,0,W-1); y=clamp(y+dy,0,H-1); spawnSync('cliclick',['m:'+Math.round(x)+','+Math.round(y)]); };
-    clickFn=()=> spawnSync('cliclick',['c:.,.']);
+    clickFn=(btn='left')=> spawnSync('cliclick',[btn==='right'?'rc:.,.':'c:.,.']);
     backend='cliclick';
     console.log(`backend cliclick`);
   }catch{
@@ -79,7 +79,7 @@ ws.on('message', (data)=>{
     const j=JSON.parse(data.toString());
     const t=j.type;
     if(t==='move'){ const dx=(j.dx||0)*sens, dy=(j.dy||0)*sens; moveFn(dx,dy); }
-    else if(t==='click'){ clickFn(); console.log('click'); }
+    else if(t==='click'){ const btn=j.button||'left'; clickFn(btn); console.log('click '+btn); }
     else if(t==='scroll'){ try{ scrollFn(j.dy||0);}catch{} }
     else if(t==='hello'){ console.log('phone joined',j.room); }
   }catch(e){ console.error('msg err',e.message); }

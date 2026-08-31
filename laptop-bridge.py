@@ -37,7 +37,7 @@ try:
         x+=dx; y+=dy
         x=max(0,min(W-1,x)); y=max(0,min(H-1,y))
         pyautogui.moveTo(int(x),int(y), duration=0)
-    def click(): pyautogui.click()
+    def click(btn='left'): pyautogui.click(button=btn)
     def scroll(dy): pyautogui.scroll(int(dy*10))
     def key(k):
         m={"back":"esc","home":"win","vol_up":"volumeup","vol_down":"volumedown","mute":"volumemute"}
@@ -61,7 +61,7 @@ except:
             x+=dx; y+=dy
             x=max(0,min(W-1,x)); y=max(0,min(H-1,y))
             m.position=(int(x),int(y))
-        def click(): m.click(Button.left,1)
+        def click(btn='left'): m.click(Button.right if btn=='right' else Button.left,1)
         def scroll(dy): m.scroll(0, int(dy))
         def key(k): pass
         print(f"pynput {W}x{H}")
@@ -80,7 +80,7 @@ def on_message(ws, msg):
             dy=(d.get("dy",0) or 0)*args.sens
             move(dx,dy)
             print(f"move {dx:.1f},{dy:.1f} -> {int(x)},{int(y)}")
-        elif t=="click": click(); print("click")
+        elif t=="click": btn=d.get("button","left"); click(btn); print(f"click {btn}")
         elif t=="scroll": scroll(d.get("dy",0))
         elif t in ("up","down","left","right"): key(t)
         elif t=="key": key(d.get("key"))
