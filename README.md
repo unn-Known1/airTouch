@@ -35,3 +35,25 @@ Phone `airmouse.html` (gyro `rotationRate` + orientation deltas + touchpad) → 
 ## Deploy
 - GitHub Pages / Vercel for static (`index.html`, `tv.html`, `airmouse.html`) + host `relay.js` on Render/Fly.io/Raspberry Pi, set `?relay=wss://your-relay`.
 - Pure local: run both servers on a laptop on same WiFi as TV + phone.
+
+## Global Mouse (system-wide on Android TV)
+
+Browser `tv.html` only moves the *virtual cursor inside the page*. For **global system cursor** (control launcher, Netflix, any app):
+
+**Option A — No APK, immediate (recommended for test):**
+```bash
+pip install websocket-client
+# TV: Settings → Developer options → enable ADB over network (or adb tcpip 5555)
+adb connect 192.168.1.20:5555
+python3 android-tv/adb-bridge.py --relay wss://pottery-bikes-wheel-partly.trycloudflare.com --room 5576 --tv-ip 192.168.1.20
+# Keep this running on a laptop/Raspberry Pi on same WiFi as TV
+# Phone: https://.../airmouse.html?room=5576 → moves real TV pointer, click = tap
+```
+
+**Option B — Native APK (no laptop needed):**
+1. Open `android-tv/` in Android Studio → Build APK
+2. `adb connect <tv-ip>:5555 && adb install app-debug.apk`
+3. TV Settings → Accessibility → AirMouse → ON → Open AirMouse app → enter `wss://...` + `5576` → Start
+4. Phone same `airmouse.html` now drives *system* cursor via `AccessibilityService.dispatchGesture`.
+
+Both reuse the same relay/room — phone unchanged.
