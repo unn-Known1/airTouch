@@ -81,19 +81,51 @@ def on_message(ws, msg):
             print(f"click {int(x)},{int(y)}")
         elif t=="key":
             k=data.get("key")
-            mapping={"back":"BACK","home":"HOME","menu":"MENU","power":"POWER","vol_up":"VOLUME_UP","vol_down":"VOLUME_DOWN","mute":"VOLUME_MUTE"}
-            code=mapping.get(k, k.upper() if k else "BACK")
-            # try keyevent
-            keycodes={"BACK":4,"HOME":3,"MENU":82,"POWER":26,"VOLUME_UP":24,"VOLUME_DOWN":25,"VOLUME_MUTE":164}
-            kc=keycodes.get(code, 4)
-            adb("shell", "input", "keyevent", str(kc))
-            print(f"key {k} -> {kc}")
-        elif t in ("up","down","left","right"):
-            kc={"up":19,"down":20,"left":21,"right":22}[t]
-            adb("shell", "input", "keyevent", str(kc))
-        elif t=="center":
-            x,y=W//2,H//2
-            adb("shell", "input", "motionevent", str(x), str(y), "0")
+            mapping={"back":4,"home":3,"menu":82,"power":26,"vol_up":24,"vol_down":25,"mute":164,"enter":23,"center":23,"up":19,"down":20,"left":21,"right":22,"dpad_center_long":23,
+                     "media_play_pause":85,"media_play":126,"media_pause":127,"media_next":87,"media_prev":88,"media_stop":86,"media_rewind":89,"media_fast_forward":90,"captions":175,
+                     "guide":172,"info":165,"settings_tv":176,"search":84,"input_hdmi":178,"channel_up":166,"channel_down":167,
+                     "num_0":7,"num_1":8,"num_2":9,"num_3":10,"num_4":11,"num_5":12,"num_6":13,"num_7":14,"num_8":15,"num_9":16,"num_star":17,"num_hash":18,
+                     "color_red":183,"color_green":184,"color_yellow":185,"color_blue":186}
+            kc=mapping.get(k)
+            if kc is None:
+                # try generic android keycodes
+                generic={"BACK":4,"HOME":3,"MENU":82,"POWER":26,"VOLUME_UP":24,"VOLUME_DOWN":25,"VOLUME_MUTE":164}
+                kc=generic.get(k.upper() if k else "BACK", 4)
+            if k=="dpad_center_long":
+                # long press: use swipe duration
+                adb("shell", "input", "swipe", str(int(x)), str(int(y)), str(int(x)), str(int(y)), "600")
+                print(f"key {k} -> long press")
+            else:
+                adb("shell", "input", "keyevent", str(kc))
+                print(f"key {k} -> {kc}")
+        elif t in ("up","down","left","right","center","media_play_pause","media_play","media_pause","media_next","media_prev","media_stop","media_rewind","media_fast_forward","captions","channel_up","channel_down","guide","info","settings_tv","search","input_hdmi","power","menu","num_0","num_1","num_2","num_3","num_4","num_5","num_6","num_7","num_8","num_9","num_star","num_hash","color_red","color_green","color_yellow","color_blue","dpad_center_long"):
+            kc={"up":19,"down":20,"left":21,"right":22,"center":23,"media_play_pause":85,"media_play":126,"media_pause":127,"media_next":87,"media_prev":88,"media_stop":86,"media_rewind":89,"media_fast_forward":90,"captions":175,"channel_up":166,"channel_down":167,"guide":172,"info":165,"settings_tv":176,"search":84,"input_hdmi":178,"power":26,"menu":82,"num_0":7,"num_1":8,"num_2":9,"num_3":10,"num_4":11,"num_5":12,"num_6":13,"num_7":14,"num_8":15,"num_9":16,"num_star":17,"num_hash":18,"color_red":183,"color_green":184,"color_yellow":185,"color_blue":186,"dpad_center_long":23}[t]
+            if t=="dpad_center_long":
+                adb("shell", "input", "swipe", str(int(x)), str(int(y)), str(int(x)), str(int(y)), "600")
+            else:
+                adb("shell", "input", "keyevent", str(kc))
+        elif t in ("text","keyboard"):
+            txt=str(data.get("text",""))[:512].replace("'","").replace('"',"")
+            if txt:
+                # escape spaces for input text
+                esc=txt.replace("%","%25").replace(" ","%s")
+                adb("shell", "input", "text", esc)
+                print(f"text {txt[:40]}")
+            act=data.get("action")
+            if act=="enter": adb("shell", "input", "keyevent", "66")
+            elif act=="search": adb("shell", "input", "keyevent", "84")
+            elif act=="delete": adb("shell", "input", "keyevent", "67")
+        elif t=="launch":
+            pkg=str(data.get("pkg") or data.get("app") or "")[:128]
+            if pkg:
+                # try monkey launch
+                adb("shell", "monkey", "-p", pkg, "-c", "android.intent.category.LAUNCHER", "1")
+                print(f"launch {pkg}")
+        elif t=="long_click":
+            btn=data.get("button","left")
+            dur=int(data.get("duration",600))
+            adb("shell", "input", "swipe", str(int(x)), str(int(y)), str(int(x)), str(int(y)), str(max(300,min(2000,dur))))
+            print(f"long_click {btn} {dur}ms")
         elif t=="hello":
             print("phone joined", data.get("room"))
     except Exception as e:

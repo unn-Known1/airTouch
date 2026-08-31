@@ -84,23 +84,47 @@ async function connectTV(){
   }catch(e){ console.error('TV connect err', e.message); }
 }
 
+const KEY_MAP={
+  up:19,down:20,left:21,right:22,enter:23,click:23,center:23,back:4,home:3,vol_up:24,vol_down:25,mute:164,menu:82,power:26,
+  media_play_pause:85,media_play:126,media_pause:127,media_next:87,media_prev:88,media_stop:86,media_rewind:89,media_fast_forward:90,captions:175,
+  guide:172,info:165,settings_tv:176,search:84,input_hdmi:178,channel_up:166,channel_down:167,
+  num_0:7,num_1:8,num_2:9,num_3:10,num_4:11,num_5:12,num_6:13,num_7:14,num_8:15,num_9:16,num_star:17,num_hash:18,
+  color_red:183,color_green:184,color_yellow:185,color_blue:186,dpad_center_long:23
+};
 function sendKey(keyCode){
+  const code = KEY_MAP[keyCode] || parseInt(keyCode) || 23;
   if(tvReady && tvSocket){
-    // RemoteService expects RemoteKeyCode 19=UP,20=DOWN,21=LEFT,22=RIGHT,23=ENTER,4=BACK,3=HOME,24/25/164 vol, 66=ENTER
-    const map={up:19,down:20,left:21,right:22,enter:23,click:23,back:4,home:3,vol_up:24,vol_down:25,mute:164,menu:82};
-    const code = map[keyCode] || parseInt(keyCode) || 23;
     const msg=JSON.stringify({type:'remoteKey', keyCode:code, direction:0});
     try{ tvSocket.write(Buffer.from(msg)); console.log('TV key',keyCode,code); return true; }catch(e){ console.error('TV write err',e.message); }
   }
-  // ADB fallback - use spawnSync with args (no shell)
   try{
     const {spawnSync}=awaitImportSync('child_process');
-    const adbMap={up:19,down:20,left:21,right:22,enter:23,click:23,back:4,home:3,vol_up:24,vol_down:25,mute:164};
-    const kc=adbMap[keyCode]||23;
     if(!isValidTvIp(tvIp)) return false;
-    const r=spawnSync('adb',['-s',`${tvIp}:5555`,'shell','input','keyevent',String(kc)],{stdio:'ignore'});
-    if(r.status===0){ console.log('ADB fallback key',kc); return true; }
+    const r=spawnSync('adb',['-s',`${tvIp}:5555`,'shell','input','keyevent',String(code)],{stdio:'ignore'});
+    if(r.status===0){ console.log('ADB fallback key',code); return true; }
     return false;
+  }catch{ return false; }
+}
+function sendText(text){
+  try{
+    const {spawnSync}=awaitImportSync('child_process');
+    if(!isValidTvIp(tvIp)) return false;
+    const escaped = String(text).replace(/%/g,'%25').replace(/ /g,'%s').slice(0,512);
+    // try input text, fallback to keyevents for each char if needed
+    let r=spawnSync('adb',['-s',`${tvIp}:5555`,'shell','input','text',escaped],{stdio:'ignore'});
+    if(r.status===0){ console.log('ADB text',escaped.slice(0,40)); return true; }
+    return false;
+  }catch{ return false; }
+}
+function sendLaunch(pkg){
+  try{
+    const {spawnSync}=awaitImportSync('child_process');
+    if(!isValidTvIp(tvIp)) return false;
+    const p=String(pkg).replace(/[^a-zA-Z0-9._]/g,'').slice(0,128);
+    let r=spawnSync('adb',['-s',`${tvIp}:5555`,'shell','monkey','-p',p,'-c','android.intent.category.LAUNCHER','1'],{stdio:'ignore'});
+    if(r.status===0) return true;
+    r=spawnSync('adb',['-s',`${tvIp}:5555`,'shell','am','start','-n',`${p}/.MainActivity`],{stdio:'ignore'});
+    return r.status===0;
   }catch{ return false; }
 }
 function awaitImportSync(m){ try{ return require(m); }catch{ return null; } }
@@ -134,10 +158,24 @@ if(doPair){
         if(Math.abs(dx)>12) sendKey(dx>0?'right':'left');
         if(Math.abs(dy)>12) sendKey(dy>0?'down':'up');
       } else if(t==='click'){ let btn=j.button||'left'; if(!['left','right'].includes(btn)) btn='left'; sendKey(btn==='right'?'right':'enter'); }
+      else if(t==='long_click'){ let btn=j.button||'left'; if(!['left','right'].includes(btn)) btn='left'; sendKey(btn==='right'?'right':'enter'); }
+      else if(t==='text' || t==='keyboard'){
+        let txt=String(j.text||'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'').slice(0,512);
+        if(txt) sendText(txt);
+        if(j.action==='enter') sendKey('enter');
+        if(j.action==='search') sendKey('search');
+        if(j.action==='delete') sendKey('back');
+      }
+      else if(t==='launch'){
+        let pkg=String(j.pkg||j.app||'').replace(/[^a-zA-Z0-9._]/g,'').slice(0,128);
+        if(pkg) sendLaunch(pkg);
+      }
       else if(t==='key'){
-        let k=j.key;
-        if(typeof k!=='string'||!/^[a-z_]+$/.test(k)) return;
-        sendKey(k.slice(0,24));
+        let k=String(j.key||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,32);
+        if(!k) return;
+        sendKey(k);
+      } else if(['media_play_pause','media_play','media_pause','media_next','media_prev','media_stop','media_rewind','media_fast_forward','captions','channel_up','channel_down','guide','info','settings_tv','search','input_hdmi','power','menu','num_0','num_1','num_2','num_3','num_4','num_5','num_6','num_7','num_8','num_9','num_star','num_hash','color_red','color_green','color_yellow','color_blue','dpad_center_long'].includes(t)){
+        sendKey(t);
       } else if(t==='tv_pair'){
         if(j.tvIp && isValidTvIp(String(j.tvIp))){ tvIp=String(j.tvIp); console.log('Pair request from webpage', tvIp, room); connectTV(); }
         if(j.room && /^[0-9a-zA-Z_-]{1,16}$/.test(String(j.room))) room=String(j.room);

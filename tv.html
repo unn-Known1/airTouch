@@ -302,21 +302,23 @@ function handleRemote(msg){
       place(cx+dx, cy+dy);
       break;
     }
-    case 'orient': {
-      // fallback: map beta/gamma directly? Not delta, so we do incremental from last
-      // For now ignore, phone should send move deltas
-      break;
-    }
+    case 'orient': break;
     case 'click': doClick(); break;
+    case 'long_click': doClick(); toast('Long press'); break;
     case 'back': toast('Back'); log('Back'); break;
     case 'home': toast('Home'); log('Home'); break;
-    case 'up': place(cx, cy-60); break;
-    case 'down': place(cx, cy+60); break;
-    case 'left': place(cx-80, cy); break;
-    case 'right': place(cx+80, cy); break;
+    case 'up': place(cx, cy-60); toast('Up'); break;
+    case 'down': place(cx, cy+60); toast('Down'); break;
+    case 'left': place(cx-80, cy); toast('Left'); break;
+    case 'right': place(cx+80, cy); toast('Right'); break;
     case 'scroll': place(cx, cy + (msg.dy||0)*20); break;
-    case 'center': place(stage.clientWidth/2, stage.clientHeight/2); break;
+    case 'center': place(stage.clientWidth/2, stage.clientHeight/2); toast('Center'); break;
     case 'key': toast('Key: '+msg.key); log('key '+msg.key); break;
+    case 'text':
+    case 'keyboard': toast(msg.text ? 'Text: '+msg.text.slice(0,30) : 'Key '+(msg.action||'')); log('text '+ (msg.text||'')+' '+(msg.action||'')); break;
+    case 'launch': toast('Launch '+ (msg.pkg||msg.app||'')); log('launch '+ (msg.pkg||msg.app||'')); break;
+    case 'media_play_pause': case 'media_play': case 'media_pause': case 'media_next': case 'media_prev': case 'media_stop': case 'media_rewind': case 'media_fast_forward': case 'captions': case 'channel_up': case 'channel_down': case 'guide': case 'info': case 'settings_tv': case 'search': case 'input_hdmi': case 'power': case 'menu': case 'num_0': case 'num_1': case 'num_2': case 'num_3': case 'num_4': case 'num_5': case 'num_6': case 'num_7': case 'num_8': case 'num_9': case 'num_star': case 'num_hash': case 'color_red': case 'color_green': case 'color_yellow': case 'color_blue': case 'dpad_center_long':
+      toast(msg.type.replace(/_/g,' ')); log(msg.type); break;
     case 'hello': log('phone joined room '+msg.room); toast('Phone connected'); break;
     case 'ping': log('ping'); break;
   }

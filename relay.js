@@ -130,7 +130,12 @@ const wss = new WebSocketServer({
 
 const ALLOWED_TYPES = new Set([
   'move','click','scroll','up','down','left','right','center','key','hello','peer_join',
-  'tv_pair','tv_pair_pin','back','home','vol_up','vol_down','mute','menu','power'
+  'tv_pair','tv_pair_pin','back','home','vol_up','vol_down','mute','menu','power',
+  // Android TV remote extended
+  'text','launch','keyboard','long_click',
+  'media_play_pause','media_next','media_prev','media_rewind','media_fast_forward','media_stop','media_play','media_pause','captions',
+  'num_0','num_1','num_2','num_3','num_4','num_5','num_6','num_7','num_8','num_9','num_star','num_hash',
+  'channel_up','channel_down','guide','info','settings_tv','search','input_hdmi','dpad_center_long','color_red','color_green','color_yellow','color_blue'
 ]);
 
 function isValidNumber(n){
@@ -215,12 +220,31 @@ wss.on('connection', (ws, req)=>{
       msg.dy = clampMove(msg.dy);
     } else if(msg.type === 'key'){
       if(typeof msg.key !== 'string') return;
-      msg.key = msg.key.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,24);
+      msg.key = msg.key.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,32);
       if(!msg.key) return;
-    } else if(msg.type === 'click'){
+    } else if(msg.type === 'click' || msg.type === 'long_click'){
       const btn = msg.button || 'left';
       if(typeof btn !== 'string' || !['left','right','middle'].includes(btn)) msg.button = 'left';
       else msg.button = btn;
+      if(msg.type==='long_click'){
+        let dur = parseInt(msg.duration,10);
+        if(!isFinite(dur)) dur=600;
+        msg.duration = Math.max(200, Math.min(2000, dur));
+      }
+    } else if(msg.type === 'text' || msg.type === 'keyboard'){
+      if(typeof msg.text !== 'string') return;
+      // allow unicode text but cap length, strip control chars except newline
+      msg.text = msg.text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'').slice(0,512);
+      if(!msg.text) return;
+      if(msg.type==='keyboard' && typeof msg.action === 'string'){
+        msg.action = msg.action.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,16);
+      }
+    } else if(msg.type === 'launch'){
+      if(typeof msg.pkg !== 'string' && typeof msg.app !== 'string') return;
+      const p = String(msg.pkg || msg.app);
+      if(!/^[a-zA-Z0-9._]+$/.test(p) || p.length>128) return;
+      msg.pkg = p;
+      if(typeof msg.action === 'string') msg.action = msg.action.replace(/[^a-zA-Z0-9._\/-]/g,'').slice(0,128);
     }
 
     msg.room = room;
