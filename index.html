@@ -3,185 +3,231 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AirTouch — Unified</title>
+<title>AirTouch — Gyro Air Mouse for TV</title>
+<meta name="description" content="Turn your phone into an air mouse for Android TV & laptop. Gyro + touchpad + global cursor. No install — just open on any device.">
 <script src="https://unpkg.com/peerjs@1.5.3/dist/peerjs.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  :root{
+    --color-primary:#6366F1; --color-on-primary:#fff; --color-secondary:#818CF8; --color-on-secondary:#0F172A;
+    --color-accent:#059669; --color-on-accent:#fff; --color-bg:#F5F3FF; --color-fg:#312E81;
+    --color-card:#FFFFFF; --color-card-fg:#312E81; --color-muted:#EBEFF9; --color-muted-fg:#475569;
+    --color-border:#E0E7FF; --color-ring:#6366F1;
+    --space-xs:4px; --space-sm:8px; --space-md:16px; --space-lg:24px; --space-xl:32px; --space-2xl:48px;
+    --shadow-sm:0 1px 2px rgba(49,46,129,.06); --shadow-md:0 4px 12px rgba(49,46,129,.08); --shadow-lg:0 10px 24px rgba(49,46,129,.12); --shadow-xl:0 20px 32px rgba(49,46,129,.14);
+    --radius:14px; --radius-lg:16px;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#08080c;color:#e8e8ef;min-height:100vh}
-  .top{position:sticky;top:0;z-index:20;background:#111118;border-bottom:1px solid #222}
-  .bar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;gap:8px;flex-wrap:wrap}
-  .bar h1{font-size:16px;letter-spacing:0.06em}
-  .bar h1 span{color:#60a5fa}
-  .badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-  .badge{font-size:11px;padding:5px 8px;border-radius:999px;border:1px solid #2a2a3a;background:#1a1a24;white-space:nowrap}
-  .badge.ok{background:#0f2a1a;border-color:#1a4a2a;color:#4ade80}
-  .badge.err{background:#2a0f14;border-color:#4a1a22;color:#ff6b7a}
-  .pair{padding:10px 14px;display:grid;gap:8px}
-  .row{display:flex;gap:8px}
-  .input{flex:1;background:#0f0f14;border:1px solid #2a2a3a;border-radius:10px;color:#fff;padding:10px;font-size:13px}
-  .input.code{letter-spacing:0.12em;font-weight:700;text-align:center}
-  .input.relay{font-size:11px}
-  .btn{background:#007AFF;color:#fff;border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer;white-space:nowrap}
-  .btn:active{opacity:.8;transform:scale(.98)}
-  .btn.secondary{background:#2a2a3a}
-  .btn:disabled{background:#1a1a24;color:#555}
-  .tabs{display:flex;gap:8px;padding:0 14px 10px}
-  .tab{flex:1;padding:10px;border-radius:10px;border:1px solid #2a2a3a;background:#1a1a24;color:#8b8ba3;font-weight:700;font-size:13px;cursor:pointer}
-  .tab.active{background:#fff;color:#000;border-color:#fff}
-  .wrap{max-width:900px;margin:0 auto;padding:14px;display:grid;gap:14px}
-  .card{background:#15151e;border:1px solid #2a2a3a;border-radius:16px;padding:14px}
-  .section-title{font-size:11px;letter-spacing:0.08em;color:#8b8ba3;text-transform:uppercase;margin-bottom:8px;font-weight:700}
-  .hint{font-size:11px;color:#8b8ba3;line-height:1.4;text-align:center}
-  .mono{font-family:ui-monospace,monospace;font-size:10px;background:#0f0f14;border:1px solid #26263a;border-radius:8px;padding:8px;overflow:auto;max-height:100px;white-space:pre-wrap;word-break:break-all}
-  /* Remote */
-  .touchpad{height:200px;background:radial-gradient(400px 200px at 50% 0%, #1e2a4a 0%, transparent 60%), #0f0f14;border:1px solid #2a2a3a;border-radius:14px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:none;user-select:none}
-  .touchpad span{color:#8b8ba3;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;text-align:center;line-height:1.4}
-  .touchpad .dot{position:absolute;width:14px;height:14px;background:#60a5fa;border-radius:50%;pointer-events:none;opacity:0;transform:translate(-50%,-50%)}
+  html{scroll-behavior:smooth}
+  body{font-family:'Work Sans',system-ui,sans-serif;background:var(--color-bg);color:var(--color-fg);min-height:100vh;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Outfit',sans-serif;letter-spacing:-0.02em}
+  button, a, [role="button"]{cursor:pointer}
+  :focus-visible{outline:2px solid var(--color-ring);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+  /* header */
+  .header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--color-border)}
+  .header-inner{max-width:1024px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--color-primary),var(--color-secondary));display:grid;place-items:center;color:#fff;box-shadow:var(--shadow-sm)}
+  .brand h1{font-size:17px;font-weight:700;line-height:1}
+  .brand p{font-size:11px;color:var(--color-muted-fg);margin-top:2px}
+  .badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px;border:1px solid var(--color-border);background:#fff;color:var(--color-muted-fg);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:all 200ms ease}
+  .badge.ok{background:#ECFDF5;border-color:#A7F3D0;color:#065F46}
+  .badge.err{background:#FEF2F2;border-color:#FECACA;color:#991B1B}
+  .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.9}
+  /* pairing */
+  .shell{max-width:1024px;margin:0 auto;padding:16px;display:grid;gap:16px}
+  .pair-card{background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow-md);display:grid;gap:12px}
+  .pair-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}
+  @media(max-width:640px){ .pair-grid{grid-template-columns:1fr; } }
+  .field{display:grid;gap:6px}
+  .field label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-muted-fg)}
+  .input{padding:12px 14px;border:1px solid var(--color-border);border-radius:10px;font-size:14px;background:#fff;color:var(--color-fg);transition:border-color 200ms, box-shadow 200ms;width:100%}
+  .input:focus{border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(99,102,241,.15);outline:none}
+  .input.code{letter-spacing:.14em;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+  .btn{padding:12px 16px;border-radius:10px;border:1px solid transparent;font-weight:600;font-size:14px;transition:all 200ms ease;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px}
+  .btn-primary{background:var(--color-accent);color:var(--color-on-accent);box-shadow:var(--shadow-sm)}
+  .btn-primary:hover{opacity:.92;transform:translateY(-1px);box-shadow:var(--shadow-md)}
+  .btn-secondary{background:#fff;color:var(--color-primary);border-color:var(--color-primary)}
+  .btn-secondary:hover{background:var(--color-muted)}
+  .btn-ghost{background:var(--color-muted);color:var(--color-fg);border-color:transparent}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  /* tabs */
+  .tabs{display:flex;gap:8px;padding:4px;background:var(--color-muted);border-radius:12px;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:1;min-width:110px;padding:10px 12px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--color-muted-fg);font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:all 200ms ease}
+  .tab.active{background:var(--color-card);color:var(--color-fg);border-color:var(--color-border);box-shadow:var(--shadow-sm)}
+  .tab svg{width:16px;height:16px;flex-shrink:0}
+  /* cards */
+  .card{background:var(--color-card);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow-sm);transition:box-shadow 200ms, transform 200ms}
+  .card:hover{box-shadow:var(--shadow-md)}
+  .section-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-muted-fg);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .section-title svg{width:14px;height:14px}
+  .hint{font-size:12px;color:var(--color-muted-fg);line-height:1.5;text-align:center}
+  .mono{font-family:ui-monospace,monospace;font-size:11px;background:var(--color-muted);border:1px solid var(--color-border);border-radius:8px;padding:10px;overflow:auto;max-height:120px;white-space:pre-wrap;word-break:break-all}
+  /* remote */
+  .touchpad{height:190px;background:linear-gradient(180deg,#fff 0%, var(--color-muted) 100%);border:1px solid var(--color-border);border-radius:12px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:none;user-select:none}
+  .touchpad span{color:var(--color-muted-fg);font-size:11px;letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.4}
+  .touchpad .dot{position:absolute;width:14px;height:14px;background:var(--color-primary);border-radius:50%;pointer-events:none;opacity:0;transform:translate(-50%,-50%);box-shadow:var(--shadow-sm)}
   .touchpad.active .dot{opacity:1}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-  .kbtn{background:#1e1e2e;border:1px solid #2a2a3a;border-radius:12px;padding:12px 6px;color:#fff;font-weight:700;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:4px}
-  .kbtn:active{transform:scale(.97);background:#2a2a3a}
-  .dpad{position:relative;height:150px;background:#0f0f14;border:1px solid #2a2a3a;border-radius:14px;display:grid;place-items:center}
-  .dpad button{position:absolute;width:48px;height:48px;background:#1e1e2e;border:1px solid #2a2a3a;border-radius:10px;color:#fff;font-size:16px}
-  .dpad .up{top:8px;left:50%;transform:translateX(-50%)} .dpad .down{bottom:8px;left:50%;transform:translateX(-50%)} .dpad .left{left:8px;top:50%;transform:translateY(-50%)} .dpad .right{right:8px;top:50%;transform:translateY(-50%)} .dpad .c{width:52px;height:52px;background:#fff;color:#000;border-radius:50%;display:grid;place-items:center;font-weight:900;border:none;position:static;transform:none}
+  .kbtn{background:var(--color-card);border:1px solid var(--color-border);border-radius:12px;padding:12px 8px;color:var(--color-fg);font-weight:600;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:44px;transition:all 200ms ease}
+  .kbtn:hover{border-color:var(--color-primary);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+  .kbtn:active{transform:scale(.98)}
+  .kbtn svg{width:18px;height:18px}
+  .dpad{position:relative;height:148px;background:var(--color-muted);border:1px solid var(--color-border);border-radius:12px;display:grid;place-items:center}
+  .dpad button{position:absolute;width:44px;height:44px;background:var(--color-card);border:1px solid var(--color-border);border-radius:10px;color:var(--color-fg);display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+  .dpad .up{top:10px;left:50%;transform:translateX(-50%)} .dpad .down{bottom:10px;left:50%;transform:translateX(-50%)} .dpad .left{left:10px;top:50%;transform:translateY(-50%)} .dpad .right{right:10px;top:50%;transform:translateY(-50%)} .dpad .c{width:56px;height:56px;background:var(--color-primary);color:var(--color-on-primary);border-radius:50%;border:none;position:static;transform:none;box-shadow:var(--shadow-md)}
   /* TV */
-  .stage{position:relative;background:radial-gradient(800px 400px at 70% -10%, #1a2540 0%, transparent 60%), #0b0b10;border:1px solid #2a2a3a;border-radius:14px;overflow:hidden;height:360px}
-  .cursor{position:absolute;width:28px;height:28px;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:10;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
-  .cursor .dot{width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;left:7px;top:7px;border:2px solid #007AFF}
-  .cursor .ring{position:absolute;inset:0;border:2px solid rgba(255,255,255,.9);border-radius:50%;animation:pulse 1.2s infinite}
-  @keyframes pulse{0%{transform:scale(1);opacity:1}100%{transform:scale(1.6);opacity:0}}
-  .launcher{padding:16px;display:grid;gap:12px}
+  .stage{position:relative;background:linear-gradient(180deg,#fff 0%, #EEF2FF 100%);border:1px solid var(--color-border);border-radius:12px;overflow:hidden;height:340px;box-shadow:var(--shadow-sm)}
+  .cursor{position:absolute;width:28px;height:28px;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:10;filter:drop-shadow(0 2px 8px rgba(49,46,129,.2))}
+  .cursor .dot{width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;left:7px;top:7px;border:2px solid var(--color-primary)}
+  .cursor .ring{position:absolute;inset:0;border:2px solid var(--color-primary);border-radius:50%;opacity:.7;animation:pulse 1.2s infinite}
+  @keyframes pulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+  .launcher{padding:14px;display:grid;gap:10px}
   .apps{display:flex;gap:10px;flex-wrap:wrap}
-  .app{width:120px;height:68px;border-radius:10px;background:#1e1e2e;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
-  .app.hover{border-color:#60a5fa;transform:scale(1.04);box-shadow:0 6px 20px rgba(96,165,250,.3)}
-  .app.yt{background:#cc0000} .app.nf{background:#e50914} .app.prime{background:#00a8e1}
-  .code{font-size:32px;letter-spacing:0.16em;font-weight:800;text-align:center;padding:6px 0;font-variant-numeric:tabular-nums}
-  .qr{width:160px;height:160px;background:#fff;border-radius:12px;margin:8px auto;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .app{width:116px;height:64px;border-radius:10px;background:var(--color-card);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;letter-spacing:.04em;box-shadow:var(--shadow-sm);transition:all 200ms ease}
+  .app.hover{border-color:var(--color-primary);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+  .code{font-size:28px;letter-spacing:.14em;font-weight:800;text-align:center;padding:6px 0;font-variant-numeric:tabular-nums;color:var(--color-fg)}
+  .qr{width:150px;height:150px;background:#fff;border:1px solid var(--color-border);border-radius:12px;margin:8px auto;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:var(--shadow-sm)}
   .qr img{width:100%;height:100%}
-  /* Sensors */
-  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-  .metric{background:#0f0f14;border:1px solid #26263a;border-radius:10px;padding:10px;text-align:center}
-  .metric .label{font-size:10px;color:#8b8ba3;text-transform:uppercase}
-  .metric .value{font-size:18px;font-weight:700;margin-top:4px}
+  /* sensors */
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .metric{background:var(--color-muted);border:1px solid var(--color-border);border-radius:10px;padding:12px;text-align:center}
+  .metric .label{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-muted-fg);font-weight:600}
+  .metric .value{font-size:20px;font-weight:700;margin-top:4px;color:var(--color-fg);font-variant-numeric:tabular-nums}
   .scene{width:100px;height:100px;margin:14px auto;perspective:500px}
-  .cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform 0.1s linear}
-  .face{position:absolute;width:100px;height:100px;border:2px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
-  .face.front{background:rgba(96,165,250,.85);transform:rotateY(0) translateZ(50px)} .face.back{background:rgba(96,165,250,.5);transform:rotateY(180deg) translateZ(50px)} .face.right{background:rgba(244,114,182,.85);transform:rotateY(90deg) translateZ(50px)} .face.left{background:rgba(244,114,182,.5);transform:rotateY(-90deg) translateZ(50px)} .face.top{background:rgba(74,222,128,.85);transform:rotateX(90deg) translateZ(50px)} .face.bottom{background:rgba(74,222,128,.5);transform:rotateX(-90deg) translateZ(50px)}
-  .hidden{display:none}
+  .cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform 120ms linear}
+  .face{position:absolute;width:100px;height:100px;border:1px solid rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;backdrop-filter:blur(2px)}
+  .face.front{background:rgba(99,102,241,.88);color:#fff;transform:rotateY(0) translateZ(50px)} .face.back{background:rgba(99,102,241,.5);color:#fff;transform:rotateY(180deg) translateZ(50px)} .face.right{background:rgba(5,150,105,.85);color:#fff;transform:rotateY(90deg) translateZ(50px)} .face.left{background:rgba(5,150,105,.5);color:#fff;transform:rotateY(-90deg) translateZ(50px)} .face.top{background:rgba(129,140,248,.85);color:#fff;transform:rotateX(90deg) translateZ(50px)} .face.bottom{background:rgba(129,140,248,.5);color:#fff;transform:rotateX(-90deg) translateZ(50px)}
+  .hidden{display:none!important}
+  @media(min-width:768px){ .shell{padding:20px} }
 </style>
 </head>
 <body>
-<div class="top">
-  <div class="bar">
-    <h1>AirTouch <span>Unified</span></h1>
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 3.5-3 6.5-7 10-4-3.5-7-6.5-7-10a7 7 0 0 1 7-7Z"/><circle cx="12" cy="9" r="2"/></svg></div>
+      <div><h1>AirTouch</h1><p>Gyro air mouse • no install</p></div>
+    </div>
     <div class="badges">
-      <span id="connBadge" class="badge">○ Offline</span>
-      <span id="roomBadge" class="badge">ROOM ----</span>
+      <span id="connBadge" class="badge"><span class="dot" style="background:#94A3B8"></span> Offline</span>
+      <span id="roomBadge" class="badge" style="background:var(--color-muted)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 8h.01M8 12h8M8 16h8"/></svg> ROOM ----</span>
       <span id="secureBadge" class="badge">…</span>
     </div>
   </div>
-  <div class="pair">
-    <div class="row">
-      <input id="roomInput" class="input code" maxlength="4" inputmode="numeric" placeholder="CODE">
-      <input id="relayInput" class="input relay" placeholder="wss://...">
-      <button id="connectBtn" class="btn">Connect</button>
+  <div style="max-width:1024px;margin:0 auto;padding:0 16px 12px">
+    <div class="pair-card" style="padding:12px">
+      <div class="pair-grid">
+        <div class="field"><label for="roomInput">Room code</label><input id="roomInput" class="input code" maxlength="4" inputmode="numeric" placeholder="----" aria-label="Room code"></div>
+        <div class="field"><label for="relayInput">Relay (auto wss on Pages)</label><input id="relayInput" class="input relay" placeholder="wss://..." aria-label="Relay URL"></div>
+        <div class="field" style="justify-content:end"><label style="opacity:0">.</label><button id="connectBtn" class="btn btn-primary" style="min-width:110px">Connect</button></div>
+      </div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Modes">
+      <button class="tab active" data-tab="remote" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> Remote</button>
+      <button class="tab" data-tab="tv" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 2l-5 5-5-5"/></svg> TV</button>
+      <button class="tab" data-tab="sensors" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 3.5-3 6.5-7 10-4-3.5-7-6.5-7-10a7 7 0 0 1 7-7Z"/></svg> Sensors</button>
     </div>
   </div>
-  <div class="tabs">
-    <button class="tab active" data-tab="remote">Remote (Phone)</button>
-    <button class="tab" data-tab="tv">TV Receiver</button>
-    <button class="tab" data-tab="sensors">Sensors</button>
-  </div>
-</div>
+</header>
 
-<div class="wrap">
-  <!-- REMOTE TAB -->
-  <div id="tab-remote">
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span class="section-title" style="margin:0">Gyro Air Mouse</span>
-        <span id="gyroStatus" style="font-size:11px;color:#8b8ba3">Idle</span>
-      </div>
-      <div style="display:flex;gap:8px;margin:10px 0">
-        <button id="gyroBtn" class="btn" style="flex:1">Tap to Enable Gyro</button>
-        <button id="calibBtn" class="btn secondary" style="flex:1">Calibrate</button>
-        <button id="clickBtn" class="btn secondary">Click</button>
-      </div>
-      <div class="touchpad" id="gyroPad"><span id="gyroHint">Enable gyro, tilt to move TV cursor</span><div class="dot" id="gyroDot"></div></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
-        <label style="font-size:11px;color:#8b8ba3;flex:1">Sens <span id="sensVal">1.8</span> <input id="sens" type="range" min="0.5" max="4" step="0.1" value="1.8" style="width:100%"></label>
-      </div>
-      <div id="invertWrap" style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:#8b8ba3;flex-wrap:wrap"></div>
-      <div class="grid3" style="margin-top:8px">
-        <div style="text-align:center"><div style="font-size:10px;color:#8b8ba3">BETA</div><div id="betaVal" style="font-weight:700">—</div></div>
-        <div style="text-align:center"><div style="font-size:10px;color:#8b8ba3">GAMMA</div><div id="gammaVal" style="font-weight:700">—</div></div>
-        <div style="text-align:center"><div style="font-size:10px;color:#8b8ba3">RATE</div><div id="rateVal" style="font-weight:700">—</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="section-title">Touchpad</div>
-      <div class="touchpad" id="pad"><span>Swipe to move • Tap click • 2-finger scroll</span><div class="dot" id="padDot"></div></div>
-    </div>
-    <div class="card">
-      <div class="section-title">D-Pad & Keys</div>
-      <div class="dpad" style="margin-bottom:10px">
-        <button class="up" data-dir="up">▲</button><button class="left" data-dir="left">◀</button><button class="c" id="okBtn">OK</button><button class="right" data-dir="right">▶</button><button class="down" data-dir="down">▼</button>
-      </div>
-      <div class="grid3">
-        <button class="kbtn" data-key="back">↩ Back</button><button class="kbtn" data-key="home">⌂ Home</button><button class="kbtn" id="centerBtn">◎ Center</button>
-      </div>
-      <div class="grid3" style="margin-top:8px">
-        <button class="kbtn" data-key="vol_down">Vol −</button><button class="kbtn" data-key="vol_up">Vol +</button><button class="kbtn" data-key="mute">Mute</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- TV TAB -->
-  <div id="tab-tv" class="hidden">
-    <div class="card">
-      <div class="section-title">Pair</div>
-      <div id="roomCode" class="code">----</div>
-      <div class="qr" id="qrBox"><span style="color:#999;font-size:11px;padding:10px;text-align:center">QR after connect</span></div>
-      <p class="hint">Open this page on phone → Remote tab → same CODE</p>
-      <div style="display:flex;gap:8px;margin-top:8px"><button id="centerTvBtn" class="btn secondary" style="flex:1">Center</button><button id="fsBtn" class="btn secondary" style="flex:1">Fullscreen</button></div>
-    </div>
-    <div class="stage" id="stage">
-      <div id="cursor" class="cursor"><div class="ring"></div><div class="dot"></div></div>
-      <div class="launcher">
-        <div class="apps">
-          <div class="app yt" data-app="YouTube">YouTube</div><div class="app nf" data-app="Netflix">NETFLIX</div><div class="app prime" data-app="Prime">prime</div><div class="app" style="background:#2a2a3a" data-app="Settings">Settings</div>
+<main class="shell">
+  <!-- REMOTE -->
+  <section id="tab-remote" aria-labelledby="Remote">
+    <div style="display:grid;gap:16px">
+      <div class="card">
+        <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg> Gyro Air Mouse <span id="gyroStatus" style="margin-left:auto;font-size:11px;color:var(--color-muted-fg);font-weight:600">Idle</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="gyroBtn" class="btn btn-primary" style="flex:1;min-width:160px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Enable Gyro</button>
+          <button id="calibBtn" class="btn btn-secondary" style="flex:1">Calibrate</button>
+          <button id="clickBtn" class="btn btn-ghost" style="min-width:88px">Click</button>
+        </div>
+        <div class="touchpad" id="gyroPad" style="margin-top:12px"><span id="gyroHint">Tap Enable, then tilt to move TV cursor</span><div class="dot" id="gyroDot"></div></div>
+        <div style="display:grid;gap:8px;margin-top:12px">
+          <label style="font-size:11px;font-weight:600;color:var(--color-muted-fg);display:flex;align-items:center;gap:8px">Sensitivity <span id="sensVal">1.8</span> <input id="sens" type="range" min="0.5" max="4" step="0.1" value="1.8" style="flex:1;accent-color:var(--color-primary)"></label>
+          <div id="invertWrap" style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--color-muted-fg)"></div>
+        </div>
+        <div class="grid3" style="margin-top:10px">
+          <div style="text-align:center"><div style="font-size:10px;color:var(--color-muted-fg);font-weight:600;letter-spacing:.06em">BETA</div><div id="betaVal" style="font-weight:700">—</div></div>
+          <div style="text-align:center"><div style="font-size:10px;color:var(--color-muted-fg);font-weight:600;letter-spacing:.06em">GAMMA</div><div id="gammaVal" style="font-weight:700">—</div></div>
+          <div style="text-align:center"><div style="font-size:10px;color:var(--color-muted-fg);font-weight:600;letter-spacing:.06em">RATE</div><div id="rateVal" style="font-weight:700">—</div></div>
         </div>
       </div>
-      <div id="debugPos" style="position:absolute;top:6px;right:8px;background:rgba(0,0,0,.6);font-family:monospace;font-size:10px;padding:4px 6px;border-radius:6px">waiting…</div>
-      <div id="toast" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#1a1a24;border:1px solid #2a2a3a;padding:6px 10px;border-radius:999px;font-size:11px;display:none"></div>
+      <div class="card">
+        <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/></svg> Touchpad</div>
+        <div class="touchpad" id="pad"><span>Swipe to move • Tap click • 2-finger scroll</span><div class="dot" id="padDot"></div></div>
+      </div>
+      <div class="card">
+        <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg> D-Pad & Keys</div>
+        <div class="dpad" style="margin-bottom:12px">
+          <button class="up" data-dir="up" aria-label="Up">▲</button><button class="left" data-dir="left" aria-label="Left">◀</button><button class="c" id="okBtn" aria-label="OK">OK</button><button class="right" data-dir="right" aria-label="Right">▶</button><button class="down" data-dir="down" aria-label="Down">▼</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <button class="kbtn" data-key="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a4 4 0 0 1 4 4v5"/></svg> Back</button>
+          <button class="kbtn" data-key="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg> Home</button>
+          <button class="kbtn" id="centerBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/></svg> Center</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
+          <button class="kbtn" data-key="vol_down">Vol −</button><button class="kbtn" data-key="vol_up">Vol +</button><button class="kbtn" data-key="mute">Mute</button>
+        </div>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- SENSORS TAB -->
-  <div id="tab-sensors" class="hidden">
-    <div class="card">
-      <button id="enableBtn" class="btn">Tap to Enable Gyro / Motion</button>
-      <button id="resetBtn" class="btn secondary hidden" style="margin-top:8px">Reset</button>
-      <div id="status" style="margin-top:8px;font-size:12px;text-align:center;color:#8b8ba3"></div>
+  <!-- TV -->
+  <section id="tab-tv" class="hidden">
+    <div style="display:grid;gap:16px">
+      <div class="card" style="text-align:center">
+        <div class="section-title" style="justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 8h.01M8 12h8M8 16h8"/></svg> Pair phone</div>
+        <div id="roomCode" class="code">----</div>
+        <div class="qr" id="qrBox"><span style="color:var(--color-muted-fg);font-size:11px;padding:10px;text-align:center">QR after connect</span></div>
+        <p class="hint">Open this page on phone → Remote tab → same CODE</p>
+        <div style="display:flex;gap:8px;margin-top:12px"><button id="centerTvBtn" class="btn btn-secondary" style="flex:1">Center</button><button id="fsBtn" class="btn btn-ghost" style="flex:1">Fullscreen</button></div>
+      </div>
+      <div class="stage" id="stage">
+        <div id="cursor" class="cursor"><div class="ring"></div><div class="dot"></div></div>
+        <div class="launcher">
+          <div class="apps">
+            <div class="app yt" data-app="YouTube">YouTube</div><div class="app nf" data-app="Netflix">NETFLIX</div><div class="app prime" data-app="Prime">prime</div><div class="app" style="background:#fff" data-app="Settings">Settings</div>
+          </div>
+        </div>
+        <div id="debugPos" style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid var(--color-border);color:var(--color-muted-fg);font-family:ui-monospace,monospace;font-size:10px;padding:4px 6px;border-radius:6px">waiting…</div>
+        <div id="toast" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:var(--color-fg);color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;display:none;box-shadow:var(--shadow-md)"></div>
+      </div>
     </div>
-    <div class="card">
-      <div class="section-title">Orientation</div>
-      <div class="grid"><div class="metric"><div class="label">Alpha</div><div class="value" id="alpha">—</div></div><div class="metric"><div class="label">Beta</div><div class="value" id="beta">—</div></div><div class="metric"><div class="label">Gamma</div><div class="value" id="gamma">—</div></div></div>
-      <div class="scene"><div class="cube" id="cube"><div class="face front">FRONT</div><div class="face back">BACK</div><div class="face right">RIGHT</div><div class="face left">LEFT</div><div class="face top">TOP</div><div class="face bottom">BOTTOM</div></div></div>
+  </section>
+
+  <!-- SENSORS -->
+  <section id="tab-sensors" class="hidden">
+    <div style="display:grid;gap:16px">
+      <div class="card" style="text-align:center">
+        <button id="enableBtn" class="btn btn-primary" style="width:100%">Tap to Enable Gyro / Motion</button>
+        <button id="resetBtn" class="btn btn-secondary hidden" style="width:100%;margin-top:8px">Reset</button>
+        <div id="status" style="margin-top:8px;font-size:12px;color:var(--color-muted-fg)"></div>
+        <p class="hint" style="margin-top:8px">Requires HTTPS & user gesture on iOS. If denied: Settings → Safari → Motion & Orientation Access → ON.</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Orientation (°)</div>
+        <div class="grid3"><div class="metric"><div class="label">Alpha (Z)</div><div class="value" id="alpha">—</div></div><div class="metric"><div class="label">Beta (X)</div><div class="value" id="beta">—</div></div><div class="metric"><div class="label">Gamma (Y)</div><div class="value" id="gamma">—</div></div></div>
+        <div class="scene"><div class="cube" id="cube"><div class="face front">FRONT</div><div class="face back">BACK</div><div class="face right">RIGHT</div><div class="face left">LEFT</div><div class="face top">TOP</div><div class="face bottom">BOTTOM</div></div></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Motion</div>
+        <div class="grid3"><div class="metric"><div class="label">rotA</div><div class="value" id="rotA">—</div></div><div class="metric"><div class="label">rotB</div><div class="value" id="rotB">—</div></div><div class="metric"><div class="label">rotG</div><div class="value" id="rotG">—</div></div></div>
+        <div class="mono" id="raw" style="margin-top:10px">Tap Enable…</div>
+      </div>
     </div>
-    <div class="card">
-      <div class="section-title">Motion</div>
-      <div class="grid"><div class="metric"><div class="label">rotA</div><div class="value" id="rotA">—</div></div><div class="metric"><div class="label">rotB</div><div class="value" id="rotB">—</div></div><div class="metric"><div class="label">rotG</div><div class="value" id="rotG">—</div></div></div>
-      <div class="mono" id="raw" style="margin-top:8px">Tap Enable…</div>
-    </div>
-  </div>
+  </section>
 
   <div class="card">
-    <div class="section-title">Log</div>
-    <div id="log" class="mono">ready</div>
+    <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M10 13H8M16 17H8M13 13h1"/></svg> Log</div>
+    <div id="log" class="mono">ready — unified page: Remote sends, TV receives, Sensors show raw.</div>
   </div>
-  <p class="hint">Unified page — open same URL on TV (TV tab) and phone (Remote tab) with same CODE. Works on GitHub Pages via PeerJS P2P, no relay needed. For system cursor install <code>android-tv</code> APK or run <code>bridge-npx</code>.</p>
-</div>
+  <p class="hint">Tip: add to Home Screen for full-screen. TV needs same CODE. Global system cursor needs <code>android-tv</code> APK or <code>bridge-npx</code> on laptop.</p>
+</main>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -190,17 +236,19 @@ function log(m){ logEl.textContent=new Date().toLocaleTimeString()+' '+m+'\n'+lo
 
 // tabs
 const tabs=document.querySelectorAll('.tab');
-tabs.forEach(b=> b.addEventListener('click', ()=>{
-  tabs.forEach(x=>x.classList.remove('active')); b.classList.add('active');
-  document.getElementById('tab-remote').classList.toggle('hidden', b.dataset.tab!=='remote');
-  document.getElementById('tab-tv').classList.toggle('hidden', b.dataset.tab!=='tv');
-  document.getElementById('tab-sensors').classList.toggle('hidden', b.dataset.tab!=='sensors');
-  if(b.dataset.tab==='tv') setTimeout(initPos,100);
-}));
-if(new URLSearchParams(location.search).get('mode')==='tv') tabs[1].click();
-if(new URLSearchParams(location.search).get('mode')==='remote') tabs[0].click();
+function setTab(name){
+  tabs.forEach(b=>{ const on=b.dataset.tab===name; b.classList.toggle('active',on); b.setAttribute('aria-selected', on); });
+  $('tab-remote').classList.toggle('hidden', name!=='remote');
+  $('tab-tv').classList.toggle('hidden', name!=='tv');
+  $('tab-sensors').classList.toggle('hidden', name!=='sensors');
+  if(name==='tv') setTimeout(initPos,100);
+  history.replaceState(null,'','?room='+room+'&mode='+name);
+}
+tabs.forEach(b=> b.addEventListener('click', ()=> setTab(b.dataset.tab)));
+const initialMode=new URLSearchParams(location.search).get('mode') || (window.innerWidth>768 ? 'tv' : 'remote');
+setTab(['remote','tv','sensors'].includes(initialMode)?initialMode:'remote');
 
-// secure badge
+// secure + badges
 const sb=$('secureBadge');
 if(window.isSecureContext){ sb.textContent='🔒 Secure'; sb.className='badge ok'; } else { sb.textContent='⚠️ Not secure'; sb.className='badge err'; }
 
@@ -215,8 +263,8 @@ let relay=sanitizeRelay(relayRaw); if(relay!==relayRaw) localStorage.setItem('ai
 $('roomInput').value=room; $('relayInput').value=relay;
 $('roomCode').textContent=room; $('roomBadge').textContent='ROOM '+room;
 function buildQr(){
-  const url=location.origin+location.pathname+'?room='+room+'&relay='+encodeURIComponent($('relayInput').value);
-  $('qrBox').innerHTML='<img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(url)+'" alt="QR">';
+  const url=location.origin+location.pathname+'?room='+room+'&relay='+encodeURIComponent($('relayInput').value)+'&mode=remote';
+  $('qrBox').innerHTML='<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='+encodeURIComponent(url)+'" alt="QR">';
 }
 buildQr();
 
@@ -224,12 +272,19 @@ buildQr();
 let ws=null, peer=null, peerConn=null;
 var sensitivity=1.8, moveCount=0, lastMoveLog=0;
 try{ const s=parseFloat(localStorage.getItem('airmouse_sens')||'1.8'); if(!isNaN(s)) sensitivity=s; }catch{}
-$('sens').value=sensitivity; $('sensVal').textContent=sensitivity;
-$('sens').addEventListener('input', e=>{ sensitivity=parseFloat(e.target.value); $('sensVal').textContent=sensitivity; try{localStorage.setItem('airmouse_sens',sensitivity);}catch{} });
+$('sens').value=sensitivity; $('sensVal').textContent=sensitivity.toFixed(1);
+$('sens').addEventListener('input', e=>{ sensitivity=parseFloat(e.target.value); $('sensVal').textContent=sensitivity.toFixed(1); try{localStorage.setItem('airmouse_sens',sensitivity);}catch{} });
 
 function setConn(txt, ok){
-  const b=$('connBadge'); b.textContent=txt;
+  const b=$('connBadge');
+  const dot=b.querySelector('.dot'); if(dot) dot.style.background= ok===true?'#10B981': ok===false?'#EF4444':'#94A3B8';
+  b.firstChild && (b.childNodes[1] ? b.childNodes[1].textContent=' '+txt : b.textContent=txt);
+  // fallback
+  if(!dot) b.textContent=txt;
   b.className='badge '+(ok===true?'ok':ok===false?'err':'');
+  if(ok===null) b.className='badge';
+  // keep text
+  b.innerHTML='<span class="dot" style="background:'+(ok===true?'#10B981':ok===false?'#EF4444':'#94A3B8')+'"></span> '+txt;
 }
 function connect(){
   room=$('roomInput').value.trim()||room;
@@ -240,10 +295,10 @@ function connect(){
   buildQr();
   if(ws) try{ws.close()}catch{}
   const url=relay+(relay.includes('?')?'&':'?')+'room='+encodeURIComponent(room)+'&role=unified';
-  setConn('○ Connecting…',null); log('WS '+url);
-  try{ ws=new WebSocket(url); }catch(e){ setConn('✗ Bad URL',false); return; }
-  ws.onopen=()=>{ setConn('● Connected '+room,true); log('WS connected'); ws.send(JSON.stringify({type:'hello',role:'unified',room})); };
-  ws.onclose=()=> setConn('○ Disconnected',false);
+  setConn('Connecting…',null); log('WS '+url);
+  try{ ws=new WebSocket(url); }catch(e){ setConn('Bad URL',false); return; }
+  ws.onopen=()=>{ setConn('Connected '+room,true); log('WS connected'); ws.send(JSON.stringify({type:'hello',role:'unified',room})); };
+  ws.onclose=()=> setConn('Offline',false);
   ws.onerror=()=> log('WS error');
   ws.onmessage=(ev)=>{
     const raw=typeof ev.data==='string'?ev.data:String(ev.data);
@@ -264,14 +319,13 @@ try{
       tvPeer.on('connection', c=>{ peerConn=c; log('Peer phone connected'); c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw);}catch(e){} }); });
       window._tvPeer=tvPeer;
     }
-    // phone side peer (also create for remote to connect)
     const phonePeer=new Peer();
     phonePeer.on('open', ()=>{
       const tvId='airtouch-tv-'+room;
       const c=phonePeer.connect(tvId);
-      c.on('open', ()=>{ peerConn=c; log('Peer P2P connected'); setConn('● P2P '+room,true); });
+      c.on('open', ()=>{ peerConn=c; log('Peer P2P connected'); setConn('P2P '+room,true); });
       c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw);}catch(e){} });
-      window._phonePeer=phonePeer; window._peerConn=c;
+      window._phonePeer=phonePeer;
     });
   }
 }catch(e){ log('peer init '+e.message); }
@@ -286,7 +340,7 @@ function send(obj){
 
 // --- TV cursor ---
 const stage=$('stage'), cursor=$('cursor');
-let cx=400, cy=200;
+let cx=400, cy=180;
 function initPos(){ cx=(stage.clientWidth||800)/2; cy=(stage.clientHeight||400)/2; place(cx,cy); }
 setTimeout(initPos,200);
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
@@ -326,12 +380,12 @@ function toast(t){ const el=$('toast'); el.textContent=t; el.style.display='bloc
 function handleRemote(msg){
   if(msg.type==='move'){
     moveCount++;
-    const dbg=$('debugPos'); if(dbg) dbg.textContent=`move #${moveCount} dx=${(msg.dx||0).toFixed(1)} dy=${(msg.dy||0).toFixed(1)}`;
-    if(Date.now()-lastMoveLog>600){ log(`move dx=${(msg.dx||0).toFixed(1)} dy=${(msg.dy||0).toFixed(1)}`); lastMoveLog=Date.now(); }
+    const dbg=$('debugPos'); if(dbg) dbg.textContent=`#${moveCount} ${ (msg.dx||0).toFixed(1)},${(msg.dy||0).toFixed(1)} → ${Math.round(cx)},${Math.round(cy)}`;
+    if(Date.now()-lastMoveLog>600){ log(`move ${(msg.dx||0).toFixed(1)},${(msg.dy||0).toFixed(1)}`); lastMoveLog=Date.now(); }
   } else if(msg.type!=='peer_join' && msg.type!=='hello'){ log(`recv ${msg.type}`); }
   switch(msg.type){
     case 'move': {
-      const dx=(msg.dx||0)*1.0, dy=(msg.dy||0)*1.0;
+      const dx=(msg.dx||0), dy=(msg.dy||0);
       if(Math.abs(dx)<0.01 && Math.abs(dy)<0.01) break;
       place(cx+dx, cy+dy); break;
     }
@@ -342,8 +396,8 @@ function handleRemote(msg){
     case 'right': place(cx+80,cy); break;
     case 'scroll': place(cx, cy+(msg.dy||0)*15); break;
     case 'center': initPos(); break;
-    case 'key': toast('Key '+msg.key); log('key '+msg.key); break;
-    case 'hello': log('peer hello '+msg.room); break;
+    case 'key': toast('Key '+msg.key); break;
+    case 'hello': log('hello '+msg.room); break;
   }
 }
 $('centerTvBtn').addEventListener('click', initPos);
@@ -358,7 +412,7 @@ try{
   invertY=localStorage.getItem('airmouse_invertY')==='1';
 }catch{}
 const invertWrap=$('invertWrap');
-invertWrap.innerHTML=`<label><input type="checkbox" id="invX" ${invertX?'checked':''}> Invert X</label><label><input type="checkbox" id="invY" ${invertY?'checked':''}> Invert Y</label><label><input type="checkbox" id="autoC" checked> Auto-calib</label>`;
+invertWrap.innerHTML=`<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invX" ${invertX?'checked':''}> Invert X</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invY" ${invertY?'checked':''}> Invert Y</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="autoC" checked> Auto-calib</label>`;
 $('invX').addEventListener('change', e=>{ invertX=e.target.checked; localStorage.setItem('airmouse_invertX',invertX?'1':'0'); });
 $('invY').addEventListener('change', e=>{ invertY=e.target.checked; localStorage.setItem('airmouse_invertY',invertY?'1':'0'); });
 $('autoC').addEventListener('change', e=> autoCalib=e.target.checked);
@@ -420,8 +474,6 @@ function attachGyro(){
     send({type:'move',dx,dy});
   }, true);
 }
-
-// touchpad
 const pad=$('pad'), padDot=$('padDot');
 let padActive=false, lastX=0, lastY=0;
 function pos(e){ const t=e.touches?e.touches[0]:e; const r=pad.getBoundingClientRect(); return {x:t.clientX-r.left,y:t.clientY-r.top}; }
@@ -429,14 +481,12 @@ pad.addEventListener('touchstart', e=>{ e.preventDefault(); padActive=true; pad.
 pad.addEventListener('touchmove', e=>{ e.preventDefault(); if(!padActive) return; const p=pos(e); const dx=p.x-lastX, dy=p.y-lastY; lastX=p.x; lastY=p.y; padDot.style.left=p.x+'px'; padDot.style.top=p.y+'px'; if(e.touches.length===2) send({type:'scroll',dy:dy*0.5}); else send({type:'move',dx:dx*1.2,dy:dy*1.2}); },{passive:false});
 pad.addEventListener('touchend', e=>{ e.preventDefault(); if(e.touches.length===0) padActive=false; },{passive:false});
 pad.addEventListener('click', ()=> send({type:'click'}));
-
-// dpad
 document.querySelectorAll('[data-dir]').forEach(b=> b.addEventListener('click', ()=> send({type:b.dataset.dir})));
 $('okBtn').addEventListener('click', ()=> send({type:'click'}));
 $('centerBtn').addEventListener('click', ()=> send({type:'center'}));
 document.querySelectorAll('[data-key]').forEach(b=> b.addEventListener('click', ()=> send({type:'key',key:b.dataset.key})));
 
-// sensors tab (demo)
+// sensors demo
 let lastO=null, lastM=null;
 function fmt(v){ return v==null?'—':Number(v).toFixed(1); }
 function onOrient(e){ lastO=e; $('alpha').textContent=fmt(e.alpha); $('beta').textContent=fmt(e.beta); $('gamma').textContent=fmt(e.gamma); const c=$('cube'); if(c) c.style.transform=`rotateX(${e.beta||0}deg) rotateY(${e.gamma||0}deg) rotateZ(${e.alpha||0}deg)`; updateRaw(); }
