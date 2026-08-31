@@ -200,11 +200,14 @@ window.addEventListener('load', initPos);
 window.addEventListener('resize', initPos);
 function clamp(v, min,max){ return Math.max(min, Math.min(max, v)); }
 function place(x,y){
-  cx=clamp(x, 12, stage.clientWidth-12);
-  cy=clamp(y, 12, stage.clientHeight-12);
+  if(!isFinite(x) || !isFinite(y)){ console.warn('place non-finite',x,y); return; }
+  const w = stage.clientWidth||800, h = stage.clientHeight||400;
+  cx=clamp(x, 12, w-12);
+  cy=clamp(y, 12, h-12);
+  if(!isFinite(cx) || !isFinite(cy)){ cx=w/2; cy=h/2; }
   cursor.style.left=cx+'px';
   cursor.style.top=cy+'px';
-  highlight();
+  try{ highlight(); }catch(e){ console.error('highlight err',e); }
 }
 place(cx,cy);
 window.addEventListener('resize',()=>place(cx,cy));
@@ -212,20 +215,28 @@ window.addEventListener('resize',()=>place(cx,cy));
 // highlight app under cursor
 let lastHover=null;
 function highlight(){
-  const el=document.elementFromPoint(cx + stage.getBoundingClientRect().left, cy + stage.getBoundingClientRect().top);
-  // elementFromPoint needs viewport coords; stage is offset, so compute viewport point = stage rect + local
-  const r=stage.getBoundingClientRect();
-  const target=document.elementFromPoint(r.left+cx, r.top+cy);
+  try{
+    if(!isFinite(cx) || !isFinite(cy)){
+      cx=(stage.clientWidth||800)/2; cy=(stage.clientHeight||400)/2;
+    }
+    const r=stage.getBoundingClientRect();
+    const x=r.left+cx, y=r.top+cy;
+    if(!isFinite(x) || !isFinite(y)) return;
+    const target=document.elementFromPoint(x,y);
   const app=target?.closest?.('.app');
   if(lastHover && lastHover!==app) lastHover.classList.remove('hover');
   if(app) app.classList.add('hover');
   lastHover=app||null;
+  }catch(e){ console.error('highlight err',e); }
 }
 function doClick(){
   cursor.classList.add('click');
   setTimeout(()=>cursor.classList.remove('click'),180);
-  const r=stage.getBoundingClientRect();
-  const target=document.elementFromPoint(r.left+cx, r.top+cy);
+  try{
+    const r=stage.getBoundingClientRect();
+    const x=r.left+cx, y=r.top+cy;
+    if(!isFinite(x) || !isFinite(y)) return;
+    const target=document.elementFromPoint(x,y);
   const app=target?.closest?.('.app');
   if(app){
     toast('Clicked '+app.dataset.app);
@@ -235,6 +246,7 @@ function doClick(){
     toast('Click at '+Math.round(cx)+','+Math.round(cy));
     log('click empty');
   }
+  }catch(e){ console.error('doClick err',e); }
 }
 function toast(t){
   const el=document.getElementById('toast');
