@@ -80,7 +80,7 @@ jobs:
           ls -lh app/build/outputs/apk/release/
 
       - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: airtouch-debug-apk
           path: android-tv/app/build/outputs/apk/debug/app-debug.apk
@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload Release APK
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: airtouch-release-apk
           path: android-tv/app/build/outputs/apk/release/app-release*.apk
