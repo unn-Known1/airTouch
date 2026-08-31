@@ -7,15 +7,21 @@ iPhone gyro demo + Android TV Air Mouse (phone as air remote).
 - `tv.html` — TV Receiver. Show on Android TV browser. Displays 4-digit room code + QR + virtual cursor + mock launcher.
 - `airmouse.html` — Phone Remote. Gyro air mouse / Touchpad / D-Pad + Back/Home/Vol. Connect via same room code.
 
-## Quick Start (LAN)
+## Quick Start (LAN & Tunnel)
 
-1. Install relay deps: `npm install` (in `airTouch/`)
-2. Run relay: `node relay.js` → `ws://0.0.0.0:7889` (or `npm run relay`)
-3. Run static server: `python3 -m http.server 7888 --directory .`  (already running on :7888)
-4. TV: open `http://<server-ip>:7888/tv.html` (Android TV browser). Note 4-digit code.
-5. Phone: open `http://<server-ip>:7888/airmouse.html?room=CODE` (or scan QR), tap Connect → Enable Gyro → Allow → tilt to move cursor.
+1. Install: `npm install` (in `airTouch/`)
+2. Run unified server: `node relay.js` → `http://0.0.0.0:7888` + `ws://0.0.0.0:7888` (serves static + WS on same port for tunnel)
+3. TV: open `http://<server-ip>:7888/tv.html` (Android TV browser). Note 4-digit code + QR.
+4. Phone: open `http://<server-ip>:7888/airmouse.html?room=CODE` (or scan QR), `Connect` → `Enable Gyro` → Allow → tilt to move.
 
-Both devices must reach the relay (`ws://<server-ip>:7889`). Keep them on same WiFi.
+Both devices use same `ws(s)://<host>:7888` automatically. **Tunnel fix (this was your bug):** forward **only `7888`** via `cloudflared tunnel --url http://localhost:7888` / `ngrok http 7888`. Then phone/TV both use `wss://<tunnel-host>` (same as page, no `:7889`). Old two-port setup (`7888 static + 7889 WS`) fails on tunnel + HTTPS (mixed-content + unreachable `ws://...:7889`).
+
+Tunnel example:
+```
+cloudflared tunnel --url http://localhost:7888
+# TV: https://xxx.trycloudflare.com/tv.html
+# Phone: scan QR -> https://xxx.trycloudflare.com/airmouse.html?room=CODE&relay=wss://xxx.trycloudflare.com
+```
 
 ## iPhone Gyro Permission
 Requires HTTPS or localhost + user gesture. If denied: Settings → Safari → Motion & Orientation Access → ON, reload.
@@ -24,8 +30,7 @@ Requires HTTPS or localhost + user gesture. If denied: Settings → Safari → M
 Phone `airmouse.html` (gyro `rotationRate` + orientation deltas + touchpad) → WebSocket `relay.js` (room broadcast) → TV `tv.html` (cursor + virtual clicks). For system-wide Android TV control, build an APK with WebSocket client + `AccessibilityService` to inject `MotionEvent`/`KeyEvent` (web-only mode controls only the browser page).
 
 ## Ports
-- `7888` static (tv/airmouse/index)
-- `7889` WebSocket relay
+- `7888` unified (static + WebSocket relay) — **use this for tunnel**. No separate `7889` needed (old doc).
 
 ## Deploy
 - GitHub Pages / Vercel for static (`index.html`, `tv.html`, `airmouse.html`) + host `relay.js` on Render/Fly.io/Raspberry Pi, set `?relay=wss://your-relay`.

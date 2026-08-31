@@ -142,8 +142,12 @@
 </div>
 
 <script>
+function defaultRelay(){
+  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return proto + location.host;
+}
 let room = new URLSearchParams(location.search).get('room') || localStorage.getItem('airmouse_room') || '';
-let relay = new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || ('ws://'+location.hostname+':7889');
+let relay = new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || defaultRelay();
 document.getElementById('room').value = room;
 document.getElementById('relay').value = relay;
 

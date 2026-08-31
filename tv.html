@@ -69,9 +69,9 @@
       <div id="roomCode" class="code">----</div>
       <div class="qr" id="qrBox"><span style="color:#999;font-size:12px;padding:20px;text-align:center">QR loads after relay connects</span></div>
       <p class="hint">On your phone open <b>airmouse.html</b> and enter this 4-digit code.<br>Both devices must be on same WiFi + same relay server.</p>
-      <input id="relayUrl" class="input" placeholder="ws://<server-ip>:7889" />
+      <input id="relayUrl" class="input" placeholder="wss://<tunnel-host> or ws://<ip>:7888" />
       <button id="connectBtn" class="btn">Reconnect</button>
-      <p class="hint" style="margin-top:8px">Relay: <code>node relay.js</code> on port 7889. Default is <code>ws://&lt;this-host&gt;:7889</code></p>
+      <p class="hint" style="margin-top:8px">Relay now unified on <code>:7888</code> (same as page). For tunnel, leave as <code>wss://&lt;your-tunnel-host&gt;</code>. LAN: <code>ws://&lt;ip&gt;:7888</code></p>
     </div>
     <div class="card">
       <h3>Controls log</h3>
@@ -121,7 +121,14 @@ localStorage.setItem('airmouse_room', room);
 document.getElementById('roomCode').textContent = room;
 document.getElementById('roomBadge').textContent = 'ROOM '+room;
 
-let relayUrl = localStorage.getItem('airmouse_relay') || ('ws://'+location.hostname+':7889');
+function defaultRelay(){
+  // tunnel fix: if page loaded via https tunnel, use wss:// same host (no extra port) — relay is now unified on same port as static (7888)
+  // e.g. https://xxx.trycloudflare.com -> wss://xxx.trycloudflare.com
+  // http://192.168.1.5:7888 -> ws://192.168.1.5:7888
+  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return proto + location.host;
+}
+let relayUrl = new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || defaultRelay();
 document.getElementById('relayUrl').value = relayUrl;
 
 let ws, wsOk=false;
