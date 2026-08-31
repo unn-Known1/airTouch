@@ -7,6 +7,9 @@
 <meta name="description" content="Turn your phone into an air mouse for Android TV & laptop. Gyro + touchpad + global cursor. No install — just open on any device.">
 <script src="https://unpkg.com/peerjs@1.5.3/dist/peerjs.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#818CF8">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -214,7 +217,8 @@
         <div class="section-title" style="justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 8h.01M8 12h8M8 16h8"/></svg> Pair phone</div>
         <div id="roomCode" class="code">----</div>
         <div class="qr" id="qrBox"><span style="color:var(--color-muted-fg);font-size:11px;padding:10px;text-align:center">QR after connect</span></div>
-        <p class="hint">Open this page on phone → Remote tab → same CODE</p>
+        <p class="hint" id="pairHint">Open this page on phone → Remote tab → same CODE</p>
+        <button id="shareBtn" class="btn btn-ghost" style="width:100%;margin-top:8px;display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg> Share link</button>
         <div style="display:flex;gap:8px;margin-top:12px"><button id="centerTvBtn" class="btn btn-secondary" style="flex:1">Center</button><button id="fsBtn" class="btn btn-ghost" style="flex:1">Fullscreen</button></div>
       </div>
       <div class="stage" id="stage">
@@ -317,6 +321,33 @@ function buildQr(){
   $('qrBox').innerHTML=''; $('qrBox').appendChild(img);
 }
 buildQr();
+// GitHub Pages: hide relay (PeerJS handles), show share, auto-connect
+try{
+  const isPages = location.hostname.includes('github.io');
+  const relayField = document.querySelector('label[for="relayInput"]')?.parentElement || $('relayInput').parentElement;
+  if(isPages && relayField){ relayField.style.display='none'; $('pairHint').textContent='Just open same link on phone — no relay needed (Peer P2P)'; }
+  const shareBtn=$('shareBtn');
+  if(shareBtn && navigator.share){
+    shareBtn.style.display='inline-flex';
+    shareBtn.addEventListener('click', async ()=>{
+      const url=location.origin+location.pathname+'?room='+encodeURIComponent(room)+'&mode=remote';
+      try{ await navigator.share({title:'AirTouch', text:'Join my AirTouch room '+room, url}); }catch{}
+    });
+  } else if(shareBtn){
+    shareBtn.style.display='inline-flex';
+    shareBtn.textContent='Copy link';
+    shareBtn.addEventListener('click', async ()=>{
+      const url=location.origin+location.pathname+'?room='+encodeURIComponent(room)+'&mode=remote';
+      try{ await navigator.clipboard.writeText(url); shareBtn.textContent='Copied!'; setTimeout(()=> shareBtn.textContent='Copy link', 1500); }catch{}
+    });
+  }
+  // auto-connect on Pages (no click needed)
+  if(isPages){ setTimeout(()=>{ try{ connect(); }catch{} }, 400); }
+  // PWA install prompt
+  window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); window._deferredPrompt=e; log('Install available — Add to Home Screen'); });
+  // SW
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('./sw.js').then(()=> log('Offline ready')).catch(()=>{}); }
+}catch(e){}
 
 // ws + peer
 let ws=null, peer=null, peerConn=null;
