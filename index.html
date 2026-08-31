@@ -550,7 +550,7 @@ invertWrap.innerHTML=`<label style="display:flex;align-items:center;gap:6px"><in
 $('invX').addEventListener('change', e=>{ invertX=e.target.checked; localStorage.setItem('airmouse_invertX',invertX?'1':'0'); });
 $('invY').addEventListener('change', e=>{ invertY=e.target.checked; localStorage.setItem('airmouse_invertY',invertY?'1':'0'); });
 $('autoC').addEventListener('change', e=>{ autoCalib=e.target.checked; try{ localStorage.setItem('airmouse_autoCalib', autoCalib?'1':'0'); }catch{} });
-let volAsClick=false; try{ volAsClick=localStorage.getItem('airmouse_volClick')==='1'; }catch{}
+let volAsClick=true; try{ const v=localStorage.getItem('airmouse_volClick'); if(v!==null) volAsClick=v==='1'; }catch{}
 const volChk=$('volClickChk'); 
 function updateVolLabels(){
   const up=document.querySelector('[data-key="vol_up"]');
