@@ -141,6 +141,7 @@
       <button class="tab active" data-tab="remote" id="tab-btn-remote" aria-controls="tab-remote" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> Remote</button>
       <button class="tab" data-tab="tv" id="tab-btn-tv" aria-controls="tab-tv" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 2l-5 5-5-5"/></svg> TV</button>
       <button class="tab" data-tab="sensors" id="tab-btn-sensors" aria-controls="tab-sensors" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 3.5-3 6.5-7 10-4-3.5-7-6.5-7-10a7 7 0 0 1 7-7Z"/></svg> Sensors</button>
+      <button class="tab" data-tab="settings" id="tab-btn-settings" aria-controls="tab-settings" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.5 7.5l2 2M18 17l2 2M4.5 16.5l2-2M18 7l2-2"/></svg> Settings</button>
     </div>
   </div>
 </header>
@@ -261,6 +262,33 @@
     </div>
   </section>
 
+  <section id="tab-settings" role="tabpanel" aria-labelledby="tab-btn-settings" class="hidden">
+    <div style="display:grid;gap:16px">
+      <div class="card">
+        <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 3.5-3 6.5-7 10-4-3.5-7-6.5-7-10a7 7 0 0 1 7-7Z"/></svg> TV Connection (Remote App logic)</div>
+        <div class="field"><label for="tvIpInput">Android TV IP (same WiFi)</label><input id="tvIpInput" class="input" placeholder="192.168.1.20" inputmode="numeric" autocomplete="off"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button id="pairBtn" class="btn btn-primary" style="flex:1">Pair TV (show PIN)</button>
+          <button id="testTvBtn" class="btn btn-secondary" style="flex:1">Test TV Input</button>
+        </div>
+        <div id="pairStatus" class="hint" style="text-align:left;margin-top:8px">1. TV must be on same WiFi. 2. On TV, a pairing prompt appears — note PIN. 3. Bridge handles TLS 6466 (like Google TV app) — no ADB needed. Run <code>node android-tv/remote-bridge.js --tv-ip 192.168.1.20 --room 5576</code> on a laptop/Pi on same WiFi, or use the bridge’s WebSocket relay.</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="pairPin" class="input" placeholder="Enter PIN from TV" style="flex:1;max-width:160px">
+          <button id="pairPinBtn" class="btn btn-ghost">Send PIN</button>
+        </div>
+        <p class="hint" style="text-align:left">All settings are in this page — no need to edit files. Room/Relay at top syncs here.</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Remote Settings</div>
+        <div style="display:grid;gap:10px">
+          <label style="display:flex;justify-content:space-between;align-items:center;gap:8px">Sensitivity <span id="sensVal2">1.8</span> <input id="sens2" type="range" min="0.5" max="4" step="0.1" value="1.8" style="flex:1;max-width:200px"></label>
+          <div id="invertWrap2" style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--color-muted-fg)"></div>
+          <div style="font-size:11px;color:var(--color-muted-fg)">Room, relay, invert, and TV IP are saved to <code>localStorage</code> and synced via URL <code>?room=&relay=&mode=</code> — just share the link.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <div class="card">
     <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M10 13H8M16 17H8M13 13h1"/></svg> Log</div>
     <div id="log" class="mono" role="log" aria-live="polite" aria-atomic="false">ready — unified page: Remote sends, TV receives, Sensors show raw.</div>
@@ -289,9 +317,11 @@ function setTab(name){
   $('tab-remote').classList.toggle('hidden', name!=='remote');
   $('tab-tv').classList.toggle('hidden', name!=='tv');
   $('tab-sensors').classList.toggle('hidden', name!=='sensors');
+  const st=$('tab-settings'); if(st) st.classList.toggle('hidden', name!=='settings');
   $('tab-remote').setAttribute('aria-hidden', String(name!=='remote'));
   $('tab-tv').setAttribute('aria-hidden', String(name!=='tv'));
   $('tab-sensors').setAttribute('aria-hidden', String(name!=='sensors'));
+  if(st) st.setAttribute('aria-hidden', String(name!=='settings'));
   if(name==='tv') setTimeout(initPos,100);
   try{ const u=new URL(location.href); u.searchParams.set('room', room); u.searchParams.set('mode', name); if(relay) u.searchParams.set('relay', relay); history.replaceState(null,'',u); }catch{}
 }
@@ -312,7 +342,7 @@ document.querySelector('.tabs').addEventListener('keydown', e=>{
   if(nxt!==null){ e.preventDefault(); tabs[nxt].focus(); setTab(tabs[nxt].dataset.tab); }
 });
 const initialMode=new URLSearchParams(location.search).get('mode') || (window.innerWidth>768 ? 'tv' : 'remote');
-setTab(['remote','tv','sensors'].includes(initialMode)?initialMode:'remote');
+setTab(['remote','tv','sensors','settings'].includes(initialMode)?initialMode:'remote');
 
 // secure + badges
 const sb=$('secureBadge');
@@ -545,6 +575,50 @@ try{
   invertX=localStorage.getItem('airmouse_invertX') ? localStorage.getItem('airmouse_invertX')==='1' : true;
   invertY=localStorage.getItem('airmouse_invertY')==='1';
 }catch{}
+// Settings tab — TV IP / Pair / sync
+try{
+  const tvIpEl=$('tvIpInput');
+  if(tvIpEl){
+    try{ const v=localStorage.getItem('airtouch_tvIp'); if(v) tvIpEl.value=v; }catch{}
+    tvIpEl.addEventListener('change', ()=>{ try{ localStorage.setItem('airtouch_tvIp', tvIpEl.value.trim()); }catch{} });
+    $('pairBtn').addEventListener('click', ()=>{
+      const ip=tvIpEl.value.trim();
+      if(!ip) return log('Enter TV IP first');
+      try{ localStorage.setItem('airtouch_tvIp', ip); }catch{}
+      log('Pair request for '+ip+' — ensure bridge is running: node android-tv/remote-bridge.js --tv-ip '+ip+' --room '+room);
+      // Notify bridge via relay if connected
+      send({type:'tv_pair', tvIp:ip});
+      $('pairStatus').textContent='Pair requested — check TV for PIN. If TV shows PIN, enter it below and click Send PIN. Bridge must be running on same WiFi.';
+    });
+    $('pairPinBtn').addEventListener('click', ()=>{
+      const pin=$('pairPin').value.trim();
+      if(!pin) return log('Enter PIN');
+      send({type:'tv_pair_pin', pin});
+      log('PIN sent '+pin);
+    });
+    $('testTvBtn').addEventListener('click', ()=>{
+      send({type:'key', key:'home'});
+      log('Test: sent HOME to TV via bridge');
+    });
+  }
+  // Sync sensitivity second slider in Settings
+  const sens2=$('sens2'), sensVal2=$('sensVal2');
+  if(sens2){
+    sens2.value=sensitivity; if(sensVal2) sensVal2.textContent=sensitivity;
+    sens2.addEventListener('input', e=>{ sensitivity=parseFloat(e.target.value); $('sensVal').textContent=sensitivity; if(sensVal2) sensVal2.textContent=sensitivity; try{localStorage.setItem('airmouse_sens',sensitivity);}catch{} });
+    // keep primary sens in sync
+    $('sens').addEventListener('input', ()=>{ if(sens2) sens2.value=$('sens').value; if(sensVal2) sensVal2.textContent=$('sensVal').textContent; });
+  }
+  const inv2=$('invertWrap2');
+  if(inv2){
+    inv2.innerHTML=`<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invX2" ${invertX?'checked':''}> Invert X</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invY2" ${invertY?'checked':''}> Invert Y</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="volClick2" ${(()=>{try{return localStorage.getItem('airmouse_volClick')==='1'}catch{return true}})()?'checked':''}> Vol as L/R</label>`;
+    const ix2=$('invX2'), iy2=$('invY2'), vc2=$('volClick2');
+    if(ix2) ix2.addEventListener('change', e=>{ invertX=e.target.checked; const a=$('invX'); if(a) a.checked=invertX; localStorage.setItem('airmouse_invertX',invertX?'1':'0'); });
+    if(iy2) iy2.addEventListener('change', e=>{ invertY=e.target.checked; const b=$('invY'); if(b) b.checked=invertY; localStorage.setItem('airmouse_invertY',invertY?'1':'0'); });
+    if(vc2) vc2.addEventListener('change', e=>{ const v=e.target.checked; const c=$('volClickChk'); if(c) c.checked=v; try{ localStorage.setItem('airmouse_volClick', v?'1':'0'); }catch{}; const up=document.querySelector('[data-key="vol_up"]'); const down=document.querySelector('[data-key="vol_down"]'); if(up) up.innerHTML=v?'R Click':'Vol +'; if(down) down.innerHTML=v?'L Click':'Vol −'; });
+  }
+}catch(e){ log('settings init '+e.message); }
+
 const invertWrap=$('invertWrap');
 invertWrap.innerHTML=`<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invX" ${invertX?'checked':''}> Invert X</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="invY" ${invertY?'checked':''}> Invert Y</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="autoC" checked> Auto-calib</label><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="volClickChk"> Vol as L/R Click</label>`;
 $('invX').addEventListener('change', e=>{ invertX=e.target.checked; localStorage.setItem('airmouse_invertX',invertX?'1':'0'); });
