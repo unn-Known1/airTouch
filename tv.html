@@ -122,13 +122,17 @@ document.getElementById('roomCode').textContent = room;
 document.getElementById('roomBadge').textContent = 'ROOM '+room;
 
 function defaultRelay(){
-  // tunnel fix: if page loaded via https tunnel, use wss:// same host (no extra port) — relay is now unified on same port as static (7888)
-  // e.g. https://xxx.trycloudflare.com -> wss://xxx.trycloudflare.com
-  // http://192.168.1.5:7888 -> ws://192.168.1.5:7888
   const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
   return proto + location.host;
 }
-let relayUrl = new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || defaultRelay();
+function sanitizeRelay(url){
+  if(location.protocol === 'https:' && url.startsWith('ws://')) return 'wss://' + location.host;
+  if(url.includes(':7889')) url = url.replace(':7889','');
+  return url;
+}
+let relayUrlRaw = new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || defaultRelay();
+let relayUrl = sanitizeRelay(relayUrlRaw);
+if(relayUrl !== relayUrlRaw) localStorage.setItem('airmouse_relay', relayUrl);
 document.getElementById('relayUrl').value = relayUrl;
 
 let ws, wsOk=false;
@@ -148,7 +152,8 @@ function buildQr(){
   qrBox.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(phoneUrl)+'" alt="QR" onerror="this.outerHTML=\'<div style=padding:16px;font-size:11px;color:#666;word-break:break-all\'>'+phoneUrl+'</div>\'"/>';
 }
 function connect(){
-  const url = document.getElementById('relayUrl').value.trim();
+  let url = sanitizeRelay(document.getElementById('relayUrl').value.trim());
+  document.getElementById('relayUrl').value = url;
   localStorage.setItem('airmouse_relay', url);
   if(ws) try{ws.close()}catch(e){}
   setConn('', '○ Connecting… '+url);

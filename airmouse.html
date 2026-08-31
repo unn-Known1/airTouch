@@ -146,8 +146,17 @@ function defaultRelay(){
   const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
   return proto + location.host;
 }
+function sanitizeRelay(url){
+  // fix stale localStorage ws://:7889 on https tunnel — upgrade to wss:// same host
+  if(location.protocol === 'https:' && url.startsWith('ws://')) return 'wss://' + location.host;
+  // also fix explicit :7889 leftover when unified on same port
+  if(url.includes(':7889')) url = url.replace(':7889','');
+  return url;
+}
 let room = new URLSearchParams(location.search).get('room') || localStorage.getItem('airmouse_room') || '';
-let relay = new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || defaultRelay();
+let relayRaw = new URLSearchParams(location.search).get('relay') || localStorage.getItem('airmouse_relay') || defaultRelay();
+let relay = sanitizeRelay(relayRaw);
+if(relay !== relayRaw) localStorage.setItem('airmouse_relay', relay);
 document.getElementById('room').value = room;
 document.getElementById('relay').value = relay;
 
@@ -165,7 +174,8 @@ function setConn(t, ok){
 }
 function connect(){
   room=document.getElementById('room').value.trim();
-  relay=document.getElementById('relay').value.trim();
+  relay=sanitizeRelay(document.getElementById('relay').value.trim());
+  document.getElementById('relay').value = relay;
   if(!room || room.length<3) return alert('Enter 4-digit code from TV');
   localStorage.setItem('airmouse_room', room);
   localStorage.setItem('airmouse_relay', relay);
