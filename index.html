@@ -20,7 +20,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{font-family:'Work Sans';line-height:1.5,system-ui,sans-serif;background:var(--color-bg);color:var(--color-fg);min-height:100vh;-webkit-font-smoothing:antialiased}
+  body{font-family:'Work Sans',system-ui,sans-serif;line-height:1.5;background:var(--color-bg);color:var(--color-fg);min-height:100vh;-webkit-font-smoothing:antialiased}
   h1,h2,h3{font-family:'Outfit',sans-serif;letter-spacing:-0.02em;line-height:1.2;text-wrap:balance}
   .btn,.tab,.kbtn,.app,[role="button"],a,button{cursor:pointer}
   :focus-visible{outline:2px solid var(--color-ring);outline-offset:2px}
@@ -109,6 +109,7 @@
   @media(min-width:768px){ .shell{padding:20px} }
   @media(min-width:1024px){ .shell{max-width:1024px} .grid3{grid-template-columns:repeat(3,1fr)} }
   @media(min-width:1440px){ .shell{max-width:1100px} }
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -165,7 +166,7 @@
 </section>
 <main id="main" class="shell">
   <!-- REMOTE -->
-  <section id="tab-remote" role="tabpanel" aria-labelledby="tab-btn-remote" aria-labelledby="Remote">
+  <section id="tab-remote" role="tabpanel" aria-labelledby="tab-btn-remote" aria-label="Remote">
     <div style="display:grid;gap:16px">
       <div class="card">
         <div class="section-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg> Gyro Air Mouse <span id="gyroStatus" style="margin-left:auto;font-size:11px;color:var(--color-muted-fg);font-weight:600">Idle</span></div>
@@ -337,9 +338,9 @@ function connect(){
   room=$('roomInput').value.trim()||room;
   relay=sanitizeRelay($('relayInput').value.trim()||relay);
   $('relayInput').value=relay; $('roomInput').value=room;
-  localStorage.setItem('airmouse_room',room); localStorage.setItem('airmouse_relay',relay);
   $('roomCode').textContent=room; $('roomBadge').textContent='ROOM '+room;
   buildQr();
+  try{ localStorage.setItem('airmouse_room',room); localStorage.setItem('airmouse_relay',relay); }catch{}
   if(ws) try{ws.close()}catch{}
   const url=relay+(relay.includes('?')?'&':'?')+'room='+encodeURIComponent(room)+'&role=unified';
   const cl=$('connectLabel'), sp=$('connectSpinner'), cb=$('connectBtn'); if(cl) cl.textContent='Connecting…'; if(sp) sp.hidden=false; if(cb) cb.setAttribute('aria-busy','true'); setConn('Connecting…',null); log('WS '+url);
@@ -351,7 +352,7 @@ function connect(){
     wsRetry++; log('reconnect in '+Math.round(delay/1000)+'s'); setConn('Reconnecting…',null);
     clearTimeout(wsTimer); wsTimer=setTimeout(()=>{ if(navigator.onLine===false){ scheduleReconnect(); return; } connect(); }, delay);
   }
-  ws.onopen=()=>{ const cl=$('connectLabel'), sp=$('connectSpinner'), cb=$('connectBtn'); if(cl) cl.textContent='Connected'; if(sp) sp.hidden=true; if(cb) cb.setAttribute('aria-busy','false'); wsRetry=0; setConn('Connected '+room,true); log('WS connected'); try{ ws.send(JSON.stringify({type:'hello',role:'unified',room})); }catch{} };
+  ws.onopen=()=>{ initPeerJS(); const cl=$('connectLabel'), sp=$('connectSpinner'), cb=$('connectBtn'); if(cl) cl.textContent='Connected'; if(sp) sp.hidden=true; if(cb) cb.setAttribute('aria-busy','false'); wsRetry=0; setConn('Connected '+room,true); log('WS connected'); try{ ws.send(JSON.stringify({type:'hello',role:'unified',room})); }catch{} };
   ws.onclose=()=>{ setConn('Offline',false); if(!document.hidden) scheduleReconnect(); };
   ws.onerror=()=>{ log('WS error'); };
   window.addEventListener('online', ()=>{ wsRetry=0; connect(); });
@@ -366,42 +367,63 @@ $('connectBtn').addEventListener('click', connect);
 $('roomInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); connect(); } });
 $('relayInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); connect(); } });
 connect();
-// PeerJS for github.io
-try{
-  const usePeer=location.hostname.includes('github.io') || new URLSearchParams(location.search).has('peer');
-  if(window.Peer){
-    if(usePeer){
-      log('PeerJS P2P mode');
-      const tvPeer=new Peer('airtouch-tv-'+room);
+// PeerJS for github.io — mode-aware: TV listens, Remote connects
+let tvPeer=null, phonePeer=null;
+function initPeerJS(){
+  try{
+    if(!window.Peer){ log('PeerJS not loaded'); return; }
+    cleanupPeerJS();
+    const usePeer=location.hostname.includes('github.io') || new URLSearchParams(location.search).has('peer');
+    if(!usePeer){ log('Peer disabled (local relay)'); return; }
+    log('PeerJS P2P mode');
+    const mode=new URLSearchParams(location.search).get('mode') || (window.innerWidth>768 ? 'tv' : 'remote');
+    if(mode==='tv'){
+      // TV mode: create a listening peer that waits for remote connections
+      tvPeer=new Peer('airtouch-tv-'+room);
       tvPeer.on('open', ()=> log('Peer TV ready airtouch-tv-'+room));
-      tvPeer.on('connection', c=>{ peerConn=c; log('Peer phone connected'); c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw);}catch(e){} }); });
+      tvPeer.on('connection', c=>{
+        peerConn=c; log('Peer phone connected');
+        setConn('P2P '+room, true);
+        c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw); }catch(e){ log('peer data err: '+e.message); } });
+        c.on('close', ()=>{ log('Peer phone disconnected'); peerConn=null; setConn('P2P lost', false); });
+        c.on('error', err=>{ log('Peer conn err: '+err); });
+      });
+      tvPeer.on('error', err=>{ log('Peer TV err: '+err.type); if(err.type==='unavailable-id'){ log('Room ID taken, retrying in 2s'); setTimeout(initPeerJS, 2000); } });
       window._tvPeer=tvPeer;
-    }
-    const phonePeer= usePeer ? new Peer() : null;
-    if(!phonePeer) { log('Peer disabled (local relay)'); } else {
+    } else {
+      // Remote mode: create a peer and connect to TV's peer ID
+      phonePeer=new Peer();
       phonePeer.on('open', ()=>{
+        log('Peer phone ready, connecting to TV...');
         const tvId='airtouch-tv-'+room;
-        const c=phonePeer.connect(tvId);
-        c.on('open', ()=>{ peerConn=c; log('Peer P2P connected'); setConn('P2P '+room,true); });
-        c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw);}catch(e){} });
+        const c=phonePeer.connect(tvId, {reliable:true});
+        c.on('open', ()=>{ peerConn=c; log('Peer P2P connected'); setConn('P2P '+room, true); });
+        c.on('close', ()=>{ log('Peer P2P closed'); peerConn=null; setConn('P2P lost', false); });
+        c.on('error', err=>{ log('Peer conn err: '+err); });
         window._phonePeer=phonePeer;
       });
+      phonePeer.on('error', err=>{ log('Peer phone err: '+err.type); });
     }
-  }
-}catch(e){ log('peer init '+e.message); }
+  }catch(e){ log('peer init '+e.message); }
+}
+function cleanupPeerJS(){
+  try{ if(tvPeer){ tvPeer.destroy(); tvPeer=null; } }catch{}
+  try{ if(phonePeer){ phonePeer.destroy(); phonePeer=null; } }catch{}
+  peerConn=null;
+}
+initPeerJS();
 
 function send(obj){
-  if(peerConn && peerConn.open){ try{ peerConn.send(JSON.stringify(obj)); return; }catch{} }
-  if(window._peerConn && window._peerConn.open){ try{ window._peerConn.send(JSON.stringify(obj)); return; }catch{} }
-  if(!ws || ws.readyState!==1){ log('not connected'); return; }
+  if(peerConn && peerConn.open){ try{ peerConn.send(JSON.stringify(obj)); return; }catch(e){ log('peer send err: '+e.message); } }
+  if(!ws || ws.readyState!==1){ return; /* silent when no WS — P2P may still work */ }
   obj.room=room; obj.role='remote';
-  ws.send(JSON.stringify(obj));
+  try{ ws.send(JSON.stringify(obj)); }catch(e){ log('ws send err: '+e.message); }
 }
 
 // --- TV cursor ---
 const stage=$('stage'), cursor=$('cursor');
 let cx=400, cy=180;
-function initPos(){ cx=(stage.clientWidth||800)/2; cy=(stage.clientHeight||400)/2; place(cx,cy); }
+function initPos(){ const w=stage.clientWidth, h=stage.clientHeight; if(!w || !h){ /* TV tab hidden — defer */ setTimeout(initPos, 300); return; } cx=w/2; cy=h/2; place(cx,cy); }
 setTimeout(initPos,200);
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 function place(x,y){
@@ -552,12 +574,18 @@ function attachGyro(){
   }, true);
 }
 const pad=$('pad'), padDot=$('padDot');
-let padActive=false, lastX=0, lastY=0;
+let padActive=false, lastX=0, lastY=0, padMoved=false;
 function pos(e){ const t=e.touches?e.touches[0]:e; const r=pad.getBoundingClientRect(); return {x:t.clientX-r.left,y:t.clientY-r.top}; }
-pad.addEventListener('touchstart', e=>{ e.preventDefault(); padActive=true; pad.classList.add('active'); const p=pos(e); lastX=p.x; lastY=p.y; padDot.style.left=p.x+'px'; padDot.style.top=p.y+'px'; },{passive:false});
-pad.addEventListener('touchmove', e=>{ e.preventDefault(); if(!padActive) return; const p=pos(e); const dx=p.x-lastX, dy=p.y-lastY; lastX=p.x; lastY=p.y; padDot.style.left=p.x+'px'; padDot.style.top=p.y+'px'; if(e.touches.length===2) send({type:'scroll',dy:dy*0.5}); else send({type:'move',dx:dx*1.2,dy:dy*1.2}); },{passive:false});
-pad.addEventListener('touchend', e=>{ e.preventDefault(); if(e.touches.length===0) padActive=false; },{passive:false});
-pad.addEventListener('click', ()=> send({type:'click'}));
+pad.addEventListener('touchstart', e=>{ e.preventDefault(); padActive=true; padMoved=false; pad.classList.add('active'); const p=pos(e); lastX=p.x; lastY=p.y; padDot.style.left=p.x+'px'; padDot.style.top=p.y+'px'; },{passive:false});
+pad.addEventListener('touchmove', e=>{ e.preventDefault(); if(!padActive) return; padMoved=true; const p=pos(e); const dx=p.x-lastX, dy=p.y-lastY; lastX=p.x; lastY=p.y; padDot.style.left=p.x+'px'; padDot.style.top=p.y+'px'; if(e.touches.length===2) send({type:'scroll',dy:dy*0.5}); else send({type:'move',dx:dx*1.2,dy:dy*1.2}); },{passive:false});
+pad.addEventListener('touchend', e=>{ e.preventDefault(); if(e.touches.length===0){ padActive=false; pad.classList.remove('active'); } },{passive:false});
+pad.addEventListener('touchcancel', ()=>{ padActive=false; padMoved=false; pad.classList.remove('active'); });
+pad.addEventListener('click', e=>{ if(padMoved){ e.preventDefault(); e.stopPropagation(); padMoved=false; return; } send({type:'click'}); });
+// Mouse support for desktop testing
+pad.addEventListener('mousedown', e=>{ padActive=true; padMoved=false; pad.classList.add('active'); lastX=e.offsetX; lastY=e.offsetY; padDot.style.left=e.offsetX+'px'; padDot.style.top=e.offsetY+'px'; });
+pad.addEventListener('mousemove', e=>{ if(!padActive) return; padMoved=true; const dx=e.offsetX-lastX, dy=e.offsetY-lastY; lastX=e.offsetX; lastY=e.offsetY; padDot.style.left=e.offsetX+'px'; padDot.style.top=e.offsetY+'px'; send({type:'move',dx:dx*1.2,dy:dy*1.2}); });
+pad.addEventListener('mouseup', ()=>{ padActive=false; pad.classList.remove('active'); });
+pad.addEventListener('mouseleave', ()=>{ padActive=false; pad.classList.remove('active'); });
 document.querySelectorAll('[data-dir]').forEach(b=> b.addEventListener('click', ()=> send({type:b.dataset.dir})));
 $('okBtn').addEventListener('click', ()=> send({type:'click'}));
 $('centerBtn').addEventListener('click', ()=> send({type:'center'}));
