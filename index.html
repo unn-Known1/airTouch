@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>iPhone Gyro Demo</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0a0f;color:#e8e8ef;min-height:100vh;padding:20px;padding-bottom:40px}
+  h1{font-size:24px;text-align:center;margin:16px 0 4px}
+  .subtitle{text-align:center;color:#8b8ba3;font-size:13px;margin-bottom:20px}
+  .card{background:#15151e;border:1px solid #2a2a3a;border-radius:16px;padding:16px;margin:12px auto;max-width:520px}
+  .btn{width:100%;background:#007AFF;color:white;border:none;border-radius:12px;padding:16px;font-size:17px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .btn:active{opacity:0.8;transform:scale(0.98)}
+  .btn:disabled{background:#2a2a3a;color:#666;cursor:not-allowed;transform:none}
+  .btn.secondary{background:#2a2a3a;color:#e8e8ef;margin-top:10px}
+  .status{margin-top:12px;padding:10px 12px;border-radius:10px;font-size:13px;text-align:center;display:none}
+  .status.show{display:block}
+  .status.ok{background:#0f2a1a;color:#4ade80;border:1px solid #1a4a2a}
+  .status.err{background:#2a0f14;color:#ff6b7a;border:1px solid #4a1a22}
+  .status.info{background:#0f1f2a;color:#60a5fa;border:1px solid #1a3350}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+  .metric{background:#0f0f14;border:1px solid #26263a;border-radius:12px;padding:12px;text-align:center}
+  .metric .label{font-size:11px;letter-spacing:0.06em;color:#8b8ba3;text-transform:uppercase}
+  .metric .value{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+  .metric .unit{font-size:11px;color:#5a5a78;margin-top:2px}
+  .metric.alpha .value{color:#60a5fa}
+  .metric.beta .value{color:#4ade80}
+  .metric.gamma .value{color:#f472b6}
+  .section-title{font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#8b8ba3;margin:4px 0 10px;font-weight:600}
+  .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1e1e2e;font-size:13px}
+  .row:last-child{border:none}
+  .row span:first-child{color:#8b8ba3}
+  .row span:last-child{font-variant-numeric:tabular-nums;font-weight:600}
+  /* 3D Cube */
+  .scene{width:120px;height:120px;margin:20px auto;perspective:600px}
+  .cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform 0.1s linear}
+  .face{position:absolute;width:120px;height:120px;border:2px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:0.08em;backdrop-filter:blur(4px)}
+  .face.front{background:rgba(96,165,250,0.85);transform:rotateY(0deg) translateZ(60px)}
+  .face.back{background:rgba(96,165,250,0.5);transform:rotateY(180deg) translateZ(60px)}
+  .face.right{background:rgba(244,114,182,0.85);transform:rotateY(90deg) translateZ(60px)}
+  .face.left{background:rgba(244,114,182,0.5);transform:rotateY(-90deg) translateZ(60px)}
+  .face.top{background:rgba(74,222,128,0.85);transform:rotateX(90deg) translateZ(60px)}
+  .face.bottom{background:rgba(74,222,128,0.5);transform:rotateX(-90deg) translateZ(60px)}
+  .phone{width:90px;height:160px;border:3px solid #3a3a4a;border-radius:14px;margin:16px auto;position:relative;background:#1a1a24;display:flex;align-items:center;justify-content:center;transform-style:preserve-3d;transition:transform 0.1s linear}
+  .phone::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);width:30px;height:6px;background:#3a3a4a;border-radius:3px}
+  .phone span{font-size:10px;letter-spacing:0.1em;color:#8b8ba3;font-weight:700}
+  .hint{font-size:12px;color:#6a6a88;text-align:center;margin-top:10px;line-height:1.4}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px;background:#0f0f14;border:1px solid #26263a;border-radius:8px;padding:10px;overflow:auto;max-height:160px;white-space:pre-wrap;word-break:break-all}
+  .badge{display:inline-block;font-size:10px;padding:3px 7px;border-radius:999px;background:#1e1e2e;color:#8b8ba3;border:1px solid #2a2a3a;margin-left:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<h1>iPhone Gyro Demo <span class="badge" id="secureBadge"></span></h1>
+<p class="subtitle">DeviceOrientation + DeviceMotion — requires HTTPS & tap to enable on iOS</p>
+
+<div class="card">
+  <button id="enableBtn" class="btn">Tap to Enable Gyro / Motion</button>
+  <button id="resetBtn" class="btn secondary" style="display:none">Reset / Pause</button>
+  <div id="status" class="status"></div>
+  <p class="hint" id="hint">On iPhone: you must tap the button. If you previously denied, go to Settings → Safari → Motion & Orientation Access → ON, then reload.</p>
+</div>
+
+<div class="card">
+  <div class="section-title">Orientation (degrees) — DeviceOrientationEvent</div>
+  <div class="grid">
+    <div class="metric alpha"><div class="label">Alpha (Z / compass)</div><div class="value" id="alpha">—</div><div class="unit">0° – 360°</div></div>
+    <div class="metric beta"><div class="label">Beta (X / front-back)</div><div class="value" id="beta">—</div><div class="unit">-180° – 180°</div></div>
+    <div class="metric gamma"><div class="label">Gamma (Y / left-right)</div><div class="value" id="gamma">—</div><div class="unit">-90° – 90°</div></div>
+  </div>
+  <div class="row" style="margin-top:12px"><span>Absolute (compass calibrated)</span><span id="absolute">—</span></div>
+  <div class="row"><span>Compass heading (webkitCompassHeading)</span><span id="compass">—</span></div>
+
+  <!-- 3D Visualization -->
+  <div class="section-title" style="margin-top:16px">Live 3D Preview</div>
+  <div class="scene"><div class="cube" id="cube">
+    <div class="face front">FRONT</div>
+    <div class="face back">BACK</div>
+    <div class="face right">RIGHT</div>
+    <div class="face left">LEFT</div>
+    <div class="face top">TOP</div>
+    <div class="face bottom">BOTTOM</div>
+  </div></div>
+  <p class="hint">Tilt / rotate your phone — cube mirrors beta/gamma/alpha</p>
+</div>
+
+<div class="card">
+  <div class="section-title">Motion — DeviceMotionEvent</div>
+  <div class="section-title" style="color:#60a5fa">Gyroscope rotationRate (deg/s)</div>
+  <div class="grid">
+    <div class="metric"><div class="label">Alpha (Z)</div><div class="value" id="rotA">—</div></div>
+    <div class="metric"><div class="label">Beta (X)</div><div class="value" id="rotB">—</div></div>
+    <div class="metric"><div class="label">Gamma (Y)</div><div class="value" id="rotG">—</div></div>
+  </div>
+  <div class="section-title" style="margin-top:14px;color:#4ade80">Acceleration including gravity (m/s²)</div>
+  <div class="grid">
+    <div class="metric"><div class="label">X</div><div class="value" id="accX">—</div></div>
+    <div class="metric"><div class="label">Y</div><div class="value" id="accY">—</div></div>
+    <div class="metric"><div class="label">Z</div><div class="value" id="accZ">—</div></div>
+  </div>
+  <div class="section-title" style="margin-top:14px;color:#f472b6">Acceleration without gravity (m/s²)</div>
+  <div class="grid">
+    <div class="metric"><div class="label">X</div><div class="value" id="accNoX">—</div></div>
+    <div class="metric"><div class="label">Y</div><div class="value" id="accNoY">—</div></div>
+    <div class="metric"><div class="label">Z</div><div class="value" id="accNoZ">—</div></div>
+  </div>
+  <div class="row" style="margin-top:12px"><span>Interval (ms)</span><span id="interval">—</span></div>
+</div>
+
+<div class="card">
+  <div class="section-title">Raw Event JSON</div>
+  <div id="raw" class="mono">Tap "Enable" to start…</div>
+  <button id="copyBtn" class="btn secondary" style="margin-top:10px;padding:10px;font-size:13px">Copy JSON</button>
+</div>
+
+<div class="card" style="background:transparent;border-style:dashed">
+  <p style="font-size:12px;color:#8b8ba3;line-height:1.5">
+    <strong style="color:#e8e8ef">How to use on iPhone:</strong><br>
+    1. Serve this file over <code>https://</code> (GitHub Pages, Vercel, Netlify, or <code>npx serve</code> with tunnel).<br>
+    2. Open in Safari.<br>
+    3. Tap <em>Enable Gyro</em> → Allow.<br>
+    4. For installable PWA, this also works when added to Home Screen.<br><br>
+    <strong style="color:#e8e8ef">Permissions:</strong> iOS 13+ needs <code>DeviceOrientationEvent.requestPermission()</code> and <code>DeviceMotionEvent.requestPermission()</code> both triggered by a user gesture. No gesture = silently no data.
+  </p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const statusEl = $('status');
+const enableBtn = $('enableBtn');
+const resetBtn = $('resetBtn');
+const secureBadge = $('secureBadge');
+
+function setStatus(msg, type='info'){
+  statusEl.textContent = msg;
+  statusEl.className = 'status show ' + type;
+}
+
+// Secure context badge
+if (window.isSecureContext) {
+  secureBadge.textContent = '🔒 Secure Context';
+  secureBadge.style.background = '#0f2a1a';
+  secureBadge.style.color = '#4ade80';
+} else {
+  secureBadge.textContent = '⚠️ Not Secure — iOS will block';
+  secureBadge.style.background = '#2a0f14';
+  secureBadge.style.color = '#ff6b7a';
+  setStatus('This page is not HTTPS. iPhone will block gyro access. Use https:// or localhost.', 'err');
+}
+
+let listening = false;
+let lastOrientation = null;
+let lastMotion = null;
+
+function fmt(v){ return v==null ? '—' : Number(v).toFixed(1); }
+
+function updateRaw(){
+  const out = {orientation: lastOrientation, motion: lastMotion, timestamp: new Date().toISOString()};
+  $('raw').textContent = JSON.stringify(out, null, 2);
+}
+
+function onOrientation(e){
+  lastOrientation = {
+    alpha: e.alpha, beta: e.beta, gamma: e.gamma,
+    absolute: e.absolute,
+    webkitCompassHeading: e.webkitCompassHeading,
+    webkitCompassAccuracy: e.webkitCompassAccuracy
+  };
+  $('alpha').textContent = fmt(e.alpha);
+  $('beta').textContent = fmt(e.beta);
+  $('gamma').textContent = fmt(e.gamma);
+  $('absolute').textContent = String(e.absolute);
+  $('compass').textContent = e.webkitCompassHeading!=null ? fmt(e.webkitCompassHeading)+'° ±'+fmt(e.webkitCompassAccuracy)+'°' : '— (iOS only)';
+
+  // 3D cube - map orientation to CSS transforms
+  // beta = front/back tilt (X), gamma = left/right (Y), alpha = compass (Z)
+  const cube = $('cube');
+  const beta = e.beta || 0;
+  const gamma = e.gamma || 0;
+  const alpha = e.alpha || 0;
+  // Clamp to avoid flipping
+  cube.style.transform = `rotateX(${beta}deg) rotateY(${gamma}deg) rotateZ(${alpha}deg)`;
+  updateRaw();
+}
+
+function onMotion(e){
+  lastMotion = {
+    rotationRate: e.rotationRate,
+    acceleration: e.acceleration,
+    accelerationIncludingGravity: e.accelerationIncludingGravity,
+    interval: e.interval
+  };
+  const r = e.rotationRate;
+  $('rotA').textContent = fmt(r?.alpha);
+  $('rotB').textContent = fmt(r?.beta);
+  $('rotG').textContent = fmt(r?.gamma);
+  const a = e.accelerationIncludingGravity;
+  $('accX').textContent = fmt(a?.x);
+  $('accY').textContent = fmt(a?.y);
+  $('accZ').textContent = fmt(a?.z);
+  const b = e.acceleration;
+  $('accNoX').textContent = fmt(b?.x);
+  $('accNoY').textContent = fmt(b?.y);
+  $('accNoZ').textContent = fmt(b?.z);
+  $('interval').textContent = e.interval!=null ? e.interval+' ms' : '—';
+  updateRaw();
+}
+
+async function enable(){
+  const needsOrientationPerm = typeof DeviceOrientationEvent.requestPermission === 'function';
+  const needsMotionPerm = typeof DeviceMotionEvent.requestPermission === 'function';
+
+  try {
+    if (needsOrientationPerm) {
+      const res = await DeviceOrientationEvent.requestPermission();
+      if (res !== 'granted') throw new Error('DeviceOrientation permission denied: '+res);
+    }
+    if (needsMotionPerm) {
+      const res = await DeviceMotionEvent.requestPermission();
+      if (res !== 'granted') throw new Error('DeviceMotion permission denied: '+res);
+    }
+
+    // Non-iOS or granted
+    window.addEventListener('deviceorientation', onOrientation, true);
+    window.addEventListener('devicemotion', onMotion, true);
+
+    // Fallback check - if no events after 1.5s, warn
+    setTimeout(()=>{
+      if (lastOrientation==null && lastMotion==null) {
+        setStatus('No data yet. Try moving phone. If still nothing: check Settings → Safari → Motion & Orientation Access is ON, then reload.', 'info');
+      }
+    }, 1500);
+
+    listening = true;
+    enableBtn.disabled = true;
+    enableBtn.textContent = '✓ Listening — move your phone';
+    resetBtn.style.display = '';
+    setStatus('Granted! Move/rotate your iPhone to see live data.', 'ok');
+    $('hint').textContent = 'Listening… tilt, rotate, and shake the phone.';
+  } catch (err) {
+    console.error(err);
+    setStatus(err.message + ' — Go to iPhone Settings → Safari → Motion & Orientation Access → ON, then reload and tap again.', 'err');
+  }
+}
+
+function disable(){
+  window.removeEventListener('deviceorientation', onOrientation, true);
+  window.removeEventListener('devicemotion', onMotion, true);
+  listening = false;
+  enableBtn.disabled = false;
+  enableBtn.textContent = 'Tap to Enable Gyro / Motion';
+  resetBtn.style.display = 'none';
+  setStatus('Paused. Tap to enable again.', 'info');
+}
+
+enableBtn.addEventListener('click', enable);
+resetBtn.addEventListener('click', disable);
+
+// Also support desktop: no permission needed, just listen
+if (typeof DeviceOrientationEvent.requestPermission !== 'function' && typeof DeviceMotionEvent.requestPermission !== 'function') {
+  $('hint').textContent = 'Desktop/laptop: click Enable to start. (No permission prompt needed on this browser)';
+}
+
+$('copyBtn').addEventListener('click', async ()=>{
+  const t = $('raw').textContent;
+  try{ await navigator.clipboard.writeText(t); setStatus('Copied JSON to clipboard', 'ok'); } catch{ setStatus('Copy failed — select and copy manually', 'err'); }
+});
+
+// Auto-listen on Android/desktop if user didn't need to click? Still require click per spec, so we keep button.
+</script>
+</body>
+</html>
