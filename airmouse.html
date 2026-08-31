@@ -213,9 +213,18 @@ document.querySelectorAll('.tab').forEach(b=>{
 // --- gyro ---
 let gyroEnabled=false, calibBeta=0, calibGamma=0, lastBeta=null, lastGamma=null;
 let sens=1.8;
+let invertX=true; // fix left->right inversion reported, persists
+let invertY=false;
 let autoCalibEnabled=true;
 let stableCount=0;
-document.getElementById('sens').addEventListener('input', e=>{ sens=parseFloat(e.target.value); document.getElementById('sensVal').textContent=sens.toFixed(1); });
+try{
+  invertX = localStorage.getItem('airmouse_invertX') ? localStorage.getItem('airmouse_invertX')==='1' : true;
+  invertY = localStorage.getItem('airmouse_invertY')==='1';
+  const s=parseFloat(localStorage.getItem('airmouse_sens')||'1.8'); if(!isNaN(s)) sens=s;
+}catch(e){}
+document.getElementById('sens').value=sens;
+document.getElementById('sensVal').textContent=sens.toFixed(1);
+document.getElementById('sens').addEventListener('input', e=>{ sens=parseFloat(e.target.value); document.getElementById('sensVal').textContent=sens.toFixed(1); try{localStorage.setItem('airmouse_sens', sens);}catch(e){} });
 
 function doCalibrate(isAuto=false){
   if(lastBeta==null || lastGamma==null) return;
@@ -227,15 +236,21 @@ function doCalibrate(isAuto=false){
 }
 document.getElementById('calib').onclick=()=> doCalibrate(false);
 
-// add auto-toggle UI after calib button
+// add auto-toggle + invert UI after calib button
 setTimeout(()=>{
   const calibRow=document.getElementById('calib').parentElement;
   if(calibRow && !document.getElementById('autoCalibChk')){
-    const wrap=document.createElement('label');
-    wrap.style.cssText='display:flex;align-items:center;gap:6px;font-size:11px;color:#8b8ba3;margin:8px 0';
-    wrap.innerHTML='<input type="checkbox" id="autoCalibChk" checked> Auto-calibrate on stillness & first move';
+    const wrap=document.createElement('div');
+    wrap.style.cssText='display:grid;gap:6px;margin:8px 0';
+    wrap.innerHTML=`
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b8ba3"><input type="checkbox" id="autoCalibChk" ${autoCalibEnabled?'checked':''}> Auto-calibrate on stillness & first move</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b8ba3"><input type="checkbox" id="invertXChk" ${invertX?'checked':''}> Invert Left/Right</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#8b8ba3"><input type="checkbox" id="invertYChk" ${invertY?'checked':''}> Invert Up/Down</label>
+    `;
     calibRow.parentElement.insertBefore(wrap, calibRow.nextSibling);
     document.getElementById('autoCalibChk').addEventListener('change', e=> autoCalibEnabled=e.target.checked);
+    document.getElementById('invertXChk').addEventListener('change', e=>{ invertX=e.target.checked; try{localStorage.setItem('airmouse_invertX',invertX?'1':'0')}catch(e){}; log('invertX '+(invertX?'ON':'OFF')); });
+    document.getElementById('invertYChk').addEventListener('change', e=>{ invertY=e.target.checked; try{localStorage.setItem('airmouse_invertY',invertY?'1':'0')}catch(e){}; log('invertY '+(invertY?'ON':'OFF')); });
   }
 }, 0);
 
@@ -311,9 +326,11 @@ function attachGyro(){
       }
       // deadzone 1.5 deg
       if(Math.abs(b)<1.5 && Math.abs(g)<1.5) return;
-      // map gamma -> dx, beta -> dy
-      const dx = g * 0.85 * sens;
-      const dy = b * 0.85 * sens;
+      // map gamma -> dx, beta -> dy (with invert + boost Y for hand up/down)
+      let dx = g * 0.85 * sens;
+      let dy = b * 1.05 * sens; // Y boost for tilt up/down
+      if(invertX) dx = -dx;
+      if(invertY) dy = -dy;
       // auto-calibrate on first large move if calib was zero
       if(autoCalibEnabled && Math.abs(dx)>12 && (calibBeta===0 && calibGamma===0)) doCalibrate(true);
       send({type:'move', dx, dy});
@@ -339,15 +356,17 @@ function attachGyro(){
     if(now-lastT < 16) return; // ~60Hz
     lastT=now;
     let dx=0, dy=0;
-    // rotationRate gamma = left/right tilt velocity, beta = front/back
-    if(r.gamma!=null) dx = r.gamma * 0.18 * sens; // slightly higher for visibility
-    if(r.beta!=null) dy = r.beta * 0.18 * sens;
+    // rotationRate gamma = left/right, beta = up/down tilt
+    if(r.gamma!=null) dx = r.gamma * 0.20 * sens;
+    if(r.beta!=null) dy = r.beta * 0.28 * sens; // boost Y for hand up/down
+    if(invertX) dx = -dx;
+    if(invertY) dy = -dy;
     // deadzone
-    if(Math.abs(dx)<0.3 && Math.abs(dy)<0.3) return;
+    if(Math.abs(dx)<0.25 && Math.abs(dy)<0.25) return;
     // clamp
-    dx=Math.max(-45, Math.min(45, dx));
-    dy=Math.max(-45, Math.min(45, dy));
-    log(`gyro move dx=${dx.toFixed(1)} dy=${dy.toFixed(1)}`);
+    dx=Math.max(-50, Math.min(50, dx));
+    dy=Math.max(-50, Math.min(50, dy));
+    // log(`gyro move dx=${dx.toFixed(1)} dy=${dy.toFixed(1)}`);
     send({type:'move', dx, dy});
   }, true);
 }
