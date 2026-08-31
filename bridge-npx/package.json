@@ -1,0 +1,10 @@
+{
+  "name": "airtouch-bridge",
+  "version": "1.0.0",
+  "description": "One-click global AirMouse bridge — no pip, no build",
+  "type": "module",
+  "bin": { "airtouch-bridge": "./bridge.js" },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
