@@ -23,51 +23,61 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-          cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android platforms & build-tools
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          sdkmanager --list_installed || true
+          yes | sdkmanager --licenses || true
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.7
 
-      - name: Generate Gradle Wrapper (if missing)
+      - name: Make Gradlew executable & verify wrapper
         run: |
-          if [ ! -f gradlew ]; then
-            gradle wrapper --gradle-version 8.7
-            chmod +x gradlew
-          fi
-          ls -la gradlew
+          chmod +x gradlew
+          ls -lh gradle/wrapper/gradle-wrapper.* gradlew
+          ./gradlew --version --stacktrace
 
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace --info
+        run: ./gradlew :app:assembleDebug --stacktrace
 
       - name: Build Release APK (unsigned)
         if: startsWith(github.ref, 'refs/tags/v')
         run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Sign Release APK (if keystore secrets present)
-        if: startsWith(github.ref, 'refs/tags/v') && env.ANDROID_KEYSTORE_BASE64 != ''
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "No ANDROID_KEYSTORE_BASE64 secret – skipping signed build (unsigned APK already built)."
+            exit 0
+          fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/airtouch.jks
           ./gradlew :app:assembleRelease \
             -Pandroid.injected.signing.store.file=/tmp/airtouch.jks \
             -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD" \
+            --stacktrace
+          # overwrite release artifact with signed version & remove unsigned if both exist
+          ls -lh app/build/outputs/apk/release/
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -87,8 +97,11 @@ jobs:
           retention-days: 90
 
       - name: Checksums
+        if: always()
         run: |
-          sha256sum app/build/outputs/apk/debug/app-debug.apk || true
+          echo "=== Debug APK ==="
+          sha256sum app/build/outputs/apk/debug/app-debug.apk || echo "debug apk missing"
+          echo "=== Release APKs ==="
           sha256sum app/build/outputs/apk/release/*.apk 2>/dev/null || echo "no release apk"
 
       - name: Create GitHub Release (on tag)
