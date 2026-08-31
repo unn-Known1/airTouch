@@ -170,13 +170,16 @@ function connect(){
     ws.send(JSON.stringify({type:'hello', role:'tv', room}));
   };
   ws.onclose=()=>{ wsOk=false; setConn('err','○ Disconnected — retrying in 2s'); log('disconnected'); setTimeout(connect,2000); };
-  ws.onerror=(e)=>{ log('ws error'); };
+  ws.onerror=(e)=>{ log('ws error '+e); };
   ws.onmessage=(ev)=>{
+    const raw = typeof ev.data === 'string' ? ev.data : String(ev.data);
+    let msg;
+    try{ msg = JSON.parse(raw); }
+    catch(e){ log('parse err '+e.message+' | '+raw.slice(0,120)); return; }
     try{
-      const msg=JSON.parse(ev.data);
-      if(msg.role==='tv') return; // ignore own
+      if(msg.role==='tv') return;
       handleRemote(msg);
-    }catch(e){ log('bad msg '+ev.data)}
+    }catch(e){ log('handle err '+e.message+' | '+raw.slice(0,120)); console.error(e); }
   };
 }
 document.getElementById('connectBtn').onclick=connect;
