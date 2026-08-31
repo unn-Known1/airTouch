@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AirMouse - TV Receiver</title>
+<script src="https://unpkg.com/peerjs@1.5.3/dist/peerjs.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:#0b0b10;color:#fff;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;overflow:hidden;height:100vh;width:100vw}
@@ -185,6 +186,26 @@ function connect(){
 document.getElementById('connectBtn').onclick=connect;
 buildQr();
 connect();
+// PeerJS fallback for GitHub Pages (no relay server needed)
+try{
+  const usePeer = location.hostname.includes('github.io') || new URLSearchParams(location.search).has('peer');
+  if(usePeer && window.Peer){
+    log('PeerJS P2P mode — no relay needed');
+    const peerId='airtouch-tv-'+room;
+    const peer=new Peer(peerId);
+    peer.on('open', ()=>{ log('Peer ready '+peerId); setConn('ok','● Peer Ready '+room); buildQr(); });
+    peer.on('connection', conn=>{
+      log('Peer phone connected');
+      conn.on('data', raw=>{
+        try{ const msg=typeof raw==='string'?JSON.parse(raw):raw; handleRemote(msg); }catch(e){ log('peer bad '+e.message); }
+      });
+      conn.on('open', ()=>{ toast('Phone P2P connected'); log('phone P2P joined'); });
+    });
+    peer.on('error', e=> log('peer err '+e.type));
+    // also expose for debug
+    window._peer=peer;
+  }
+}catch(e){ log('peer init err '+e.message); }
 
 // --- cursor ---
 const stage=document.getElementById('stage');

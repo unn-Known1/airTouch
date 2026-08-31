@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AirMouse - Remote</title>
+<script src="https://unpkg.com/peerjs@1.5.3/dist/peerjs.min.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#08080c;color:#e8e8ef;min-height:100vh;display:flex;flex-direction:column;touch-action:manipulation}
@@ -190,13 +191,33 @@ function connect(){
 }
 document.getElementById('connectBtn').onclick=connect;
 if(room) connect();
+// PeerJS P2P for GitHub Pages
+let peerConn=null;
+try{
+  const usePeer = location.hostname.includes('github.io') || new URLSearchParams(location.search).has('peer');
+  if(usePeer && window.Peer){
+    log('PeerJS P2P mode');
+    const peer=new Peer();
+    peer.on('open', ()=>{
+      const tvId='airtouch-tv-'+room;
+      log('Peer open, connecting to '+tvId);
+      peerConn=peer.connect(tvId);
+      peerConn.on('open', ()=>{ setConn('● P2P Connected to '+room, true); log('P2P connected'); });
+      peerConn.on('error', e=> log('peer err '+e.type));
+      peerConn.on('close', ()=> setConn('○ P2P Disconnected', false));
+    });
+    window._peerConn=peerConn; window._peer=peer;
+  }
+}catch(e){ log('peer init '+e.message); }
 
 function send(obj){
-  if(!ws || ws.readyState!==1){ log('not connected'); return; }
+  // try P2P first on GitHub Pages
+  if(peerConn && peerConn.open){
+    try{ peerConn.send(JSON.stringify(obj)); return; }catch(e){}
+  }
+  if(!ws || ws.readyState!==1){ log('not connected (need relay or peer)'); return; }
   obj.room=room; obj.role='remote';
   ws.send(JSON.stringify(obj));
-  // feedback
-  // log(JSON.stringify(obj));
 }
 
 // tabs
