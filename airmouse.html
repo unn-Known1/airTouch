@@ -213,11 +213,31 @@ document.querySelectorAll('.tab').forEach(b=>{
 // --- gyro ---
 let gyroEnabled=false, calibBeta=0, calibGamma=0, lastBeta=null, lastGamma=null;
 let sens=1.8;
+let autoCalibEnabled=true;
+let stableCount=0;
 document.getElementById('sens').addEventListener('input', e=>{ sens=parseFloat(e.target.value); document.getElementById('sensVal').textContent=sens.toFixed(1); });
 
-document.getElementById('calib').onclick=()=>{
-  if(lastBeta!=null){ calibBeta=lastBeta; calibGamma=lastGamma; log('calibrated '+calibBeta.toFixed(1)+','+calibGamma.toFixed(1)); document.getElementById('gyroStatus').textContent='Calibrated'; }
-};
+function doCalibrate(isAuto=false){
+  if(lastBeta==null || lastGamma==null) return;
+  calibBeta=lastBeta; calibGamma=lastGamma;
+  stableCount=0;
+  log((isAuto?'auto-calibrated ':'calibrated ')+calibBeta.toFixed(1)+','+calibGamma.toFixed(1));
+  document.getElementById('gyroStatus').textContent=isAuto?'Auto-calibrated':'Calibrated';
+  setTimeout(()=>{ if(document.getElementById('gyroStatus').textContent.includes('calibrated')) document.getElementById('gyroStatus').textContent='Listening'; }, 1200);
+}
+document.getElementById('calib').onclick=()=> doCalibrate(false);
+
+// add auto-toggle UI after calib button
+setTimeout(()=>{
+  const calibRow=document.getElementById('calib').parentElement;
+  if(calibRow && !document.getElementById('autoCalibChk')){
+    const wrap=document.createElement('label');
+    wrap.style.cssText='display:flex;align-items:center;gap:6px;font-size:11px;color:#8b8ba3;margin:8px 0';
+    wrap.innerHTML='<input type="checkbox" id="autoCalibChk" checked> Auto-calibrate on stillness & first move';
+    calibRow.parentElement.insertBefore(wrap, calibRow.nextSibling);
+    document.getElementById('autoCalibChk').addEventListener('change', e=> autoCalibEnabled=e.target.checked);
+  }
+}, 0);
 
 function enableGyro(){
   const needPerm = typeof DeviceOrientationEvent.requestPermission==='function' || typeof DeviceMotionEvent.requestPermission==='function';
@@ -238,6 +258,16 @@ function enableGyro(){
       document.getElementById('gyroHint').innerHTML='Gyro active<br>tilt phone to move cursor';
       document.getElementById('gyroStatus').textContent='Listening';
       log('gyro enabled');
+      // auto-calibrate shortly after first orientation arrives
+      let autoTries=0;
+      const autoInt=setInterval(()=>{
+        autoTries++;
+        if(lastBeta!=null && autoCalibEnabled){
+          doCalibrate(true);
+          clearInterval(autoInt);
+        }
+        if(autoTries>20) clearInterval(autoInt);
+      }, 250);
     }catch(e){ log('gyro perm fail '+e.message); alert(e.message+' — Settings → Safari → Motion & Orientation Access → ON'); }
   })();
 }
@@ -262,14 +292,39 @@ function attachGyro(){
     if(Date.now() - lastMotionT > 300){
       const b=(e.beta||0)-calibBeta;
       const g=(e.gamma||0)-calibGamma;
+      // auto-calibrate when held still (drift correction)
+      if(autoCalibEnabled){
+        if(Math.abs(b)<1.2 && Math.abs(g)<1.2){
+          stableCount++;
+          if(stableCount>15){ // ~0.5s stillness
+            doCalibrate(true);
+            return;
+          }
+        } else {
+          stableCount=0;
+        }
+        // gentle drift towards center when idle
+        if(Math.abs(b)<0.8 && Math.abs(g)<0.8){
+          calibBeta += b*0.02;
+          calibGamma += g*0.02;
+        }
+      }
       // deadzone 1.5 deg
       if(Math.abs(b)<1.5 && Math.abs(g)<1.5) return;
       // map gamma -> dx, beta -> dy
       const dx = g * 0.85 * sens;
       const dy = b * 0.85 * sens;
-      // log throttled
-      // if(Math.random()<0.1) log(`orient dx=${dx.toFixed(1)} dy=${dy.toFixed(1)}`);
+      // auto-calibrate on first large move if calib was zero
+      if(autoCalibEnabled && Math.abs(dx)>12 && (calibBeta===0 && calibGamma===0)) doCalibrate(true);
       send({type:'move', dx, dy});
+    } else {
+      // when rotationRate is active, also detect stillness for auto-recenter
+      if(autoCalibEnabled && Math.abs((e.beta||0)-calibBeta)<1.0 && Math.abs((e.gamma||0)-calibGamma)<1.0){
+        stableCount++;
+        if(stableCount>30) doCalibrate(true);
+      } else {
+        stableCount=0;
+      }
     }
   }, true);
 
