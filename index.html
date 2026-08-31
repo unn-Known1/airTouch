@@ -379,13 +379,14 @@ try{
     }
     const phonePeer= usePeer ? new Peer() : null;
     if(!phonePeer) { log('Peer disabled (local relay)'); } else {
-    phonePeer.on('open', ()=>{
-      const tvId='airtouch-tv-'+room;
-      const c=phonePeer.connect(tvId);
-      c.on('open', ()=>{ peerConn=c; log('Peer P2P connected'); setConn('P2P '+room,true); });
-      c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw);}catch(e){} });
-      window._phonePeer=phonePeer; }
-    });
+      phonePeer.on('open', ()=>{
+        const tvId='airtouch-tv-'+room;
+        const c=phonePeer.connect(tvId);
+        c.on('open', ()=>{ peerConn=c; log('Peer P2P connected'); setConn('P2P '+room,true); });
+        c.on('data', raw=>{ try{ handleRemote(typeof raw==='string'?JSON.parse(raw):raw);}catch(e){} });
+        window._phonePeer=phonePeer;
+      });
+    }
   }
 }catch(e){ log('peer init '+e.message); }
 
