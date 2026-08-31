@@ -146,6 +146,11 @@
         <div class="field"><label for="relayInput">Relay (auto wss on Pages)</label><input id="relayInput" class="input relay" autocomplete="off" spellcheck="false" placeholder="wss://..." aria-label="Relay URL"></div>
         <div class="field" style="justify-content:end"><label style="opacity:0">.</label><button id="connectBtn" class="btn btn-primary" style="min-width:110px" aria-busy="false"><span id="connectLabel">Connect</span> <span id="connectSpinner" hidden aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg></span></button></div>
       </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button id="findTvBtn" class="btn btn-ghost" style="flex:1;min-height:38px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/><path d="M8 11h6M11 8v6"/></svg> Find TV on same WiFi</button>
+        <span id="findTvStatus" style="font-size:11px;color:var(--color-muted-fg)"></span>
+      </div>
+      <div id="findTvResults" style="display:grid;gap:6px"></div>
     </div>
     <div class="tabs" role="tablist" aria-label="Modes">
       <button class="tab active" data-tab="remote" id="tab-btn-remote" aria-controls="tab-remote" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg> Remote</button>
@@ -365,6 +370,43 @@ function buildQr(){
   img.onerror=()=>{ $('qrBox').innerHTML='<div style="padding:12px;font-size:11px;word-break:break-all">'+url+'</div>'; };
   $('qrBox').innerHTML=''; $('qrBox').appendChild(img);
 }
+async function findTvOnWifi(){
+  const status=$('findTvStatus'), results=$('findTvResults');
+  if(location.protocol==='https:'){
+    status.textContent='Open this page via http://192.168.1.x:7888 on same WiFi to scan (https blocks http scan)';
+    return;
+  }
+  status.textContent='Scanning 192.168.1.*:7888 ...';
+  results.innerHTML='';
+  const base='192.168.1.';
+  const found=[];
+  const batch=20;
+  for(let start=1; start<=254; start+=batch){
+    const checks=[];
+    for(let i=start;i<Math.min(start+batch,255);i++){
+      const url=`http://${base}${i}:7888/health`;
+      checks.push(fetch(url,{mode:'cors', cache:'no-store', signal: AbortSignal.timeout(700)}).then(r=> r.ok ? r.json().then(j=> ({ip:base+i, ok:true, j})) : null).catch(()=>null));
+    }
+    const res=await Promise.all(checks);
+    for(const r of res) if(r && r.ok){
+      found.push(r.ip);
+      const a=document.createElement('a');
+      a.href=`http://${r.ip}:7888/?room=${encodeURIComponent(room)}&mode=tv`;
+      a.target='_blank'; a.className='btn btn-secondary'; a.style.cssText='padding:8px 10px;font-size:12px';
+      a.textContent=`TV at ${r.ip}:7888 — open`;
+      a.onclick=()=>{ $('relayInput').value=`ws://${r.ip}:7888`; try{localStorage.setItem('airmouse_relay', $('relayInput').value);}catch{}; connect(); };
+      results.appendChild(a);
+      log('Found TV relay at '+r.ip);
+    }
+    status.textContent=`Scanned ${Math.min(start+batch-1,254)}/254 — found ${found.length}`;
+    if(found.length) break;
+    await new Promise(r=>setTimeout(r,80));
+  }
+  if(!found.length){ status.textContent='No TV relay found on 192.168.1.*:7888 — ensure TV/laptop runs node relay.js on same WiFi'; }
+  else { status.textContent=`Found ${found.length} TV(s)`; }
+}
+const findBtn=$('findTvBtn');
+if(findBtn) findBtn.addEventListener('click', findTvOnWifi);
 buildQr();
 // GitHub Pages: hide relay (PeerJS handles), show share, auto-connect
 try{
